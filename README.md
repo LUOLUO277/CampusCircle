@@ -1,226 +1,242 @@
-# Campus Circle 2.0
+# 校园圈子 2.0 项目协作说明
 
-This repository contains the full local-development workspace for the project:
+这个仓库是我们项目的整合开发仓库，包含前后端完整代码，方便组员各自在本地独立开发。
 
-- `backend/`: Spring Boot backend
-- `frontend/`: uni-app frontend
+目录结构：
 
-This README is written for teammates who need to clone the repo, configure a local database, and start developing quickly on their own machines.
+- `backend/`：Spring Boot 后端
+- `frontend/`：uni-app 前端
+- `ADDRESS_REFERENCE.md`：统一地址配置说明
+- `DEVELOPMENT_GUIDE.md`：多人协作开发建议
 
-## 1. Recommended setup
+## 1. 组员第一次接手时，推荐这样做
 
-Recommended for first-time setup:
+如果你是第一次把项目拉到本地，建议按下面顺序操作：
 
-1. Run the backend with the default local profile.
-2. Use the built-in local H2 database first.
-3. Start the frontend after the backend is up.
+1. 先启动后端
+2. 后端先使用默认本地数据库模式
+3. 后端启动成功后，再用 HBuilderX 运行前端
 
-This path is the lowest-friction option because it does not require a shared server or a shared remote database.
+这样最省事，因为不依赖共享服务器，也不依赖共享远程数据库。
 
-## 2. Prerequisites
+## 2. 本地开发前需要准备什么
 
-Backend:
+后端需要：
 
 - JDK 21
 - Maven 3.9+
-- Redis on `localhost:6379` is recommended
+- 建议本机有 Redis，默认端口 `6379`
 
-Frontend:
+前端需要：
 
 - HBuilderX
 
-Optional for backend MySQL mode:
+如果你想让后端连接本地 MySQL，还需要：
 
 - MySQL 8+
 
-## 3. Backend local database options
+## 3. 后端数据库怎么配置
 
-The backend supports two local development modes.
+后端现在支持两种本地开发方式。
 
-### Option A: Default local mode with H2
+### 方式 A：默认本地 H2 数据库
 
-This is the default mode now.
+这是目前最推荐的方式，也是默认方式。
 
-Key config files:
+相关配置文件：
 
 - `backend/src/main/resources/application.properties`
 - `backend/src/main/resources/application-local.properties`
 
-Important settings:
+当前关键配置：
 
-- Default active profile: `local`
-- H2 database file: `backend/data/campus-circle.mv.db`
-- Upload directory: `backend/uploads`
-- Log file: `backend/logs/campus-backend.log`
-- H2 console: `http://localhost:8080/h2-console`
+- 默认激活环境：`local`
+- 本地数据库文件：`backend/data/campus-circle.mv.db`
+- 本地上传目录：`backend/uploads`
+- 本地日志目录：`backend/logs`
+- H2 控制台：`http://localhost:8080/h2-console`
 
-Start command:
+启动命令：
 
 ```powershell
 cd backend
 mvn spring-boot:run
 ```
 
-What happens on first startup:
+第一次启动会自动完成：
 
-- JPA auto-creates tables
-- Default categories are initialized
-- Default admin user is initialized
+- 自动建表
+- 初始化默认分类
+- 初始化管理员账号
 
-Default initialized account:
+默认管理员账号：
 
-- Username: `admin`
-- Password: `admin123`
+- 用户名：`admin`
+- 密码：`admin123`
 
-### Option B: Local MySQL mode
+### 方式 B：连接本地 MySQL
 
-Key config file:
+如果你更习惯用 MySQL，可以切换到本地 MySQL 模式。
+
+相关配置文件：
 
 - `backend/src/main/resources/application-local-mysql.properties`
 
-Recommended steps:
+建议步骤：
 
-1. Make sure local MySQL is installed and running.
-2. Create a local database named `campus_circle`, or let Spring create it automatically.
-3. Start the backend with the `local-mysql` profile.
+1. 确保本机 MySQL 已安装并启动
+2. 准备一个本地可登录账号
+3. 启动时切换到 `local-mysql`
 
-Example:
+示例命令：
 
 ```powershell
 cd backend
 $env:SPRING_PROFILES_ACTIVE="local-mysql"
 $env:LOCAL_DB_URL="jdbc:mysql://localhost:3306/campus_circle?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&createDatabaseIfNotExist=true"
 $env:LOCAL_DB_USERNAME="root"
-$env:LOCAL_DB_PASSWORD="your_password"
+$env:LOCAL_DB_PASSWORD="你的MySQL密码"
 mvn spring-boot:run
 ```
 
-Related helper script:
+仓库里也有一个辅助 SQL：
 
 - `backend/scripts/init-local-mysql.sql`
 
-Notes:
+补充说明：
 
-- `spring.jpa.hibernate.ddl-auto=update` is enabled in local MySQL mode.
-- Each teammate can use a separate local database account and local data set.
+- 本地 MySQL 模式下已经开启 `ddl-auto=update`
+- 也就是说空库第一次启动时，会自动按实体建表
+- 每个组员都可以用自己的本地 MySQL，不需要共享数据库
 
-## 4. Redis notes
+## 4. Redis 要不要配
 
-Redis is used for online status and token blacklist behavior.
+Redis 主要用于：
 
-Configs:
+- 在线状态
+- token 黑名单
 
-- H2 local mode: `backend/src/main/resources/application-local.properties`
-- MySQL local mode: `backend/src/main/resources/application-local-mysql.properties`
+默认配置位置：
 
-Default:
+- `backend/src/main/resources/application-local.properties`
+- `backend/src/main/resources/application-local-mysql.properties`
 
-- Host: `localhost`
-- Port: `6379`
+默认地址：
 
-If Redis is not available, the backend has already been adjusted so core development is still possible. Some online-status and blacklist behavior will degrade gracefully.
+- Host：`localhost`
+- Port：`6379`
 
-## 5. Backend startup checklist
+如果本机没有 Redis，后端核心开发通常也还能继续，只是部分在线状态和黑名单能力会降级。
 
-After starting the backend, verify:
+## 5. 怎么确认后端启动成功
 
-1. Open `http://localhost:8080/swagger-ui.html`
-2. Open `http://localhost:8080/actuator/health`
-3. If using H2, open `http://localhost:8080/h2-console`
+后端启动后，建议至少检查下面几个地址：
 
-## 6. Frontend startup
+1. Swagger 文档：`http://localhost:8080/swagger-ui.html`
+2. 健康检查：`http://localhost:8080/actuator/health`
+3. 如果你用 H2：`http://localhost:8080/h2-console`
 
-Open `frontend/` in HBuilderX and run it there.
+## 6. 前端怎么启动
 
-The frontend now defaults to calling:
+前端目录是：
+
+- `frontend/`
+
+请用 HBuilderX 打开 `frontend/` 后运行。
+
+前端现在默认请求本地后端：
 
 ```text
 http://localhost:8080/api
 ```
 
-If you are debugging on the same computer, no extra change is needed.
+如果你是在电脑本机调试，一般不需要额外改地址。
 
-## 7. Frontend real-device debugging
+## 7. 如果是真机调试，怎么改前端地址
 
-If you run the frontend on a phone, `localhost` will point to the phone itself, not your computer.
+如果你用手机真机调试，`localhost` 指向的是手机本机，不是你的电脑。
 
-Set the backend origin to your computer LAN IP:
+这时要把前端的后端地址切到你电脑的局域网 IP，比如：
 
 ```js
 import { setDevBackendOrigin } from '@/utils/api'
 setDevBackendOrigin('http://192.168.1.23:8080')
 ```
 
-Reset to default:
+恢复默认地址：
 
 ```js
 import { clearDevBackendOrigin } from '@/utils/api'
 clearDevBackendOrigin()
 ```
 
-## 8. Where unified addresses are defined now
+## 8. 现在统一过的地址都在哪里
 
-### Unified API base address
+### 统一接口基地址
 
-Primary definition:
+定义位置：
 
 - `frontend/utils/api.js`
   - `DEFAULT_BACKEND_ORIGIN`
   - `getApiBaseUrl()`
 
-Runtime request usage:
+实际请求入口：
 
 - `frontend/utils/request.js`
 - `frontend/api/user.js`
 
-### Unified absolute image address
+### 统一图片绝对地址
 
-Primary helper:
+定义位置：
 
 - `frontend/utils/api.js`
   - `toAbsoluteUrl()`
 
-Current usage:
+当前使用位置：
 
 - `frontend/components/PostCard.vue`
 - `frontend/pages/post/detail.vue`
 - `frontend/pages/errand/detail.vue`
 
-### Unified upload address
+### 统一上传地址
 
-Current definitions:
+前端使用位置：
 
 - `frontend/utils/request.js`
   - `upload()`
 - `frontend/api/common.js`
-  - `/common/upload`
-  - `/common/upload/batch`
+  - `uploadImage()`
+  - `uploadBatchImages()`
 
-Backend upload endpoints:
+后端对应接口：
 
 - `backend/src/main/java/com/campus/campus_backend/controller/CommonController.java`
 
-## 9. Suggested local collaboration workflow
+更详细的说明见：
 
-Because there is no shared database and no shared test data, use this workflow:
+- `ADDRESS_REFERENCE.md`
 
-1. Keep API contracts stable first.
-2. Add or update example request and response payloads in PR descriptions.
-3. Avoid relying on local database IDs being identical across machines.
-4. If backend changes an API field, update the frontend in the same branch.
-5. Seed minimal local data through startup initialization or explicit scripts.
+## 9. 我们现在推荐的协作方式
 
-More detailed collaboration guidance is in:
+因为我们没有共享数据库，也没有共享线上数据，所以推荐这样协作：
+
+1. 每个人都用自己的本地数据库
+2. 接口字段变化时，前后端尽量在同一个分支一起改
+3. 不要依赖“我本地这条数据的 id 正好是多少”
+4. 如果一个功能依赖初始化数据，要把初始化方式写进代码或文档
+5. 提交 PR 时，最好写清楚接口变化和测试方式
+
+更详细的协作建议见：
 
 - `DEVELOPMENT_GUIDE.md`
 
-## 10. Repository structure
+## 10. 仓库结构
 
 ```text
 campus_circle2.0/
   backend/
   frontend/
   README.md
-  DEVELOPMENT_GUIDE.md
   ADDRESS_REFERENCE.md
+  DEVELOPMENT_GUIDE.md
 ```

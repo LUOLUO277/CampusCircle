@@ -1,147 +1,181 @@
-# Development Guide
+# 多人协作开发建议
 
-This guide is for multi-person collaboration when there is no shared database and no shared persistent data.
+这份文档是写给我们组员的，重点解决一个现实问题：
 
-## 1. Core rule
+我们现在没有共享数据库，也没有共享持久化数据，所以每个人本地跑出来的数据状态都可能不一样。
 
-Treat the database as local-only development state, not as a shared truth source.
+在这种前提下，开发方式要尽量规范一点，不然很容易出现：
 
-That means:
+- 我这里能跑，你那里不能跑
+- 我本地这条数据有，你那里没有
+- 前端和后端都改了，但没人说清楚接口变了什么
 
-- Do not assume your teammate has the same rows or the same IDs.
-- Do not hardcode local primary keys in frontend logic.
-- Do not rely on manually created records unless they are documented.
+## 1. 最重要的一条原则
 
-## 2. Branching
+把数据库当成“每个人自己的本地开发环境”，不要当成“团队共享事实源”。
 
-Recommended:
+这句话的意思是：
 
-1. `main` stays releasable.
-2. Each feature or bugfix uses a separate branch.
-3. Backend and frontend changes for the same API contract should be committed in the same branch whenever possible.
+- 不要假设组员本地一定有和你完全一样的数据
+- 不要假设某条记录的 id 在每个人电脑上都一样
+- 不要把“我本地手动插的一条数据”当成所有人都有的测试前提
 
-Suggested branch names:
+## 2. 分支怎么用
+
+建议这样做：
+
+1. `main` 分支尽量保持随时可拉、可启动
+2. 每个功能或 bug 单独开分支
+3. 如果一个需求同时改了前端和后端，尽量放在同一个分支里一起提交
+
+推荐分支命名：
 
 - `feature/post-publish`
-- `fix/login-error-handling`
-- `refactor/upload-flow`
+- `feature/user-profile-edit`
+- `fix/login-token-error`
+- `fix/upload-url`
 
-## 3. Database collaboration strategy
+## 3. 没有共享数据库时，应该怎么合作
 
-Because there is no shared DB, use one of these approaches:
+推荐方式：
 
-### Preferred
+1. 每个人使用自己的本地数据库
+2. 用代码同步“表结构”和“初始化规则”
+3. 用文档同步“测试需要准备什么数据”
 
-Keep local DBs separate and synchronize only schema and seed rules through code.
+我们现在已经有的同步手段：
 
-Use:
+- JPA 实体
+- 启动初始化逻辑
+- 本地配置文件
+- SQL 脚本
 
-- JPA entity changes
-- startup initialization
-- SQL scripts checked into git
+不推荐的方式：
 
-### Avoid
+- 随便把自己的数据库文件发给别人长期共用
+- 依赖自己本地手工造出来的数据
+- 只说“我这边没问题”，但不写清楚复现条件
 
-- Sharing exported raw DB files casually
-- Depending on one teammate’s local rows
-- Making debugging decisions based only on one machine’s data state
+## 4. 初始化数据建议怎么处理
 
-## 4. Data seeding recommendations
+没有共享数据时，最稳的办法不是“共享库”，而是“共享初始化规则”。
 
-Keep a minimal reproducible local dataset.
+建议：
 
-Recommended practice:
+1. 只保留最小可运行数据
+2. 稳定的基础数据尽量通过代码自动初始化
+3. 某功能如果需要特殊测试数据，要写清楚怎么准备
 
-1. Seed only the smallest useful data set.
-2. Seed stable reference data through code.
-3. Put explicit SQL or setup notes in the repo if a feature needs special records.
+现在项目里已经有的初始化内容：
 
-Current built-in seed behavior:
+- 默认管理员账号
+- 默认分类数据
 
-- default admin user
-- default category data
+如果后面新增模块也依赖初始化数据，建议一起提交：
 
-If a new module needs seed data, add it in a controlled way and document it in the same branch.
+- 代码改动
+- 初始化逻辑
+- 文档说明
 
-## 5. API collaboration rules
+## 5. 接口协作建议
 
-Before changing a request or response shape:
+多人合作最容易出问题的地方，其实是接口字段变了但没人同步。
 
-1. Confirm the field contract.
-2. Update both sides in the same branch if possible.
-3. Record sample payloads in the PR description.
+所以建议：
 
-Recommended PR notes:
+1. 改接口前先确认字段怎么定义
+2. 如果后端改了字段，前端尽量在同一分支一起改
+3. 提交时把请求示例和响应示例写清楚
 
-- endpoint path
-- request example
-- response example
-- breaking-change risk
+建议在 PR 或群消息里至少说明：
 
-## 6. How to avoid local-data drift problems
+- 改了哪个接口
+- 请求参数改了什么
+- 返回字段改了什么
+- 前端是否必须同步修改
 
-Use these rules:
+## 6. 怎么避免“本地数据漂移”带来的问题
 
-- Query by business meaning, not by guessed row ID.
-- Prefer usernames, codes, or stable keys over raw numeric IDs when testing manually.
-- Add fallback UI for empty state, missing state, and no-data state.
-- Test with both seeded data and empty data when possible.
+推荐遵守下面这些规则：
 
-## 7. Upload and static resource rules
+- 测试时尽量按“业务含义”查数据，不要靠猜 id
+- 能用用户名、编码、业务字段定位，就少依赖纯数字主键
+- 前端要考虑空数据、缺数据、没数据时的表现
+- 一个功能最好至少测两种情况：有数据、没数据
 
-Uploads are local filesystem data during development.
+## 7. 关于上传文件和图片资源
 
-Implications:
+上传文件现在是保存在各自本地机器上的。
 
-- Your uploaded files are not automatically available on your teammate’s machine.
-- Do not use personal local upload files as required test assets.
-- If a feature depends on an image or file, add a reusable sample asset to the repo instead.
+这意味着：
 
-## 8. Recommended daily workflow
+- 你本地上传的图片，不会自动出现在组员电脑上
+- 不要把自己本地上传出来的文件当成别人一定也有
+- 如果某个页面必须依赖固定图片，尽量放仓库里的静态资源，不要依赖个人本地上传目录
 
-1. Pull latest `main`
-2. Start backend
-3. Start frontend
-4. Reproduce with your own local DB
-5. Develop on a feature branch
-6. Test empty-state and seeded-state behavior
-7. Open PR with API and data notes
+## 8. 推荐的日常开发流程
 
-## 9. Merge checklist
+建议每次开发都按这个顺序：
 
-Before merging:
+1. 先拉最新 `main`
+2. 启动后端
+3. 启动前端
+4. 用自己的本地数据库复现功能
+5. 在功能分支上开发
+6. 至少检查空状态和基础数据状态
+7. 提交 PR 或合并前，把接口和数据准备方式说明清楚
 
-- backend starts locally
-- frontend starts locally
-- changed APIs are documented
-- no machine-specific paths were introduced
-- no personal secrets were committed
-- local-only debug artifacts were excluded
+## 9. 合并前检查清单
 
-## 10. Conflict-prone areas in this project
+在准备合并之前，建议确认：
 
-Pay extra attention when modifying:
+- 后端能在本地正常启动
+- 前端能在本地正常启动
+- 改过的接口已经说明清楚
+- 没有把自己电脑专属路径写进代码
+- 没有把密码、密钥、个人隐私信息提交进仓库
+- 没有把本地运行产物、日志、上传目录一起提交
 
-- API contracts between frontend and backend
-- upload path handling
-- image URL rendering
-- authentication and token flow
-- local DB initialization logic
+## 10. 这个项目里最容易冲突的地方
 
-## 11. Recommended communication pattern
+后面多人一起改时，下面这些地方最容易互相影响：
 
-When you change something that affects others, message the team with:
+- 前后端接口字段
+- 上传路径处理
+- 图片地址拼接
+- 登录和 token 流程
+- 本地数据库初始化逻辑
 
-1. what changed
-2. which files changed
-3. whether local DB reset is needed
-4. whether frontend or backend must be updated together
+这些地方如果你改了，最好第一时间告诉组员。
 
-## 12. If local databases diverge badly
+## 11. 组内沟通建议
 
-Use this recovery order:
+如果你做了会影响别人的改动，建议发消息时至少说清楚：
 
-1. Keep the code
-2. Drop only your local DB data if necessary
-3. Restart from documented seed/setup flow
-4. Re-test from a clean local state
+1. 改了什么功能
+2. 改了哪些文件
+3. 是否需要组员重新准备本地数据
+4. 是否需要前后端一起更新
+
+最怕的是“代码改了，但别人不知道影响范围”。
+
+## 12. 如果大家本地数据库状态差太多了，怎么办
+
+建议按这个顺序恢复：
+
+1. 保留代码
+2. 必要时只清理自己的本地数据库
+3. 按仓库里文档重新初始化
+4. 从干净状态重新验证功能
+
+不要一上来就怀疑别人代码有问题，很多时候只是本地数据状态已经漂掉了。
+
+## 13. 最后一句建议
+
+我们现在最需要保证的不是“所有人数据库完全一样”，而是：
+
+- 所有人都能独立启动项目
+- 所有人都知道接口怎么变了
+- 所有人都能按文档从零恢复本地环境
+
+只要这三点能做到，合作开发就不会太乱。
