@@ -1,0 +1,168 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "首页",
+        "enablePullDownRefresh": true,
+		"navigationStyle": "custom"
+      }
+    },
+	{
+	  "path": "pages/post/detail",
+	  "style": {
+	    "navigationBarTitleText": "帖子详情",
+		"navigationStyle": "custom"
+	  }
+	},
+    {
+      "path": "pages/errand/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/publish/index",
+      "style": {
+        "navigationBarTitleText": "发布内容"
+      }
+    },
+	{
+	  "path": "pages/publish/Post",
+	  "style": {
+	    "navigationBarTitleText": "发布帖子"
+	  }
+	},
+	{
+	  "path": "pages/hot-posts/list",
+	  "style": {
+	    "navigationBarTitleText": "热门帖子",
+		"navigationStyle": "custom"
+	  }
+	},
+    {
+      "path": "pages/message/index",
+      "style": {
+        "navigationBarTitleText": "消息列表",
+        "enablePullDownRefresh": true
+      }
+    },
+	{
+	  "path": "pages/chat/detail",
+	  "style": {
+	    "navigationBarTitleText": "聊天详情",
+	    "enablePullDownRefresh": true,
+		"navigationStyle": "custom"
+	  }
+	},
+    {
+      "path": "pages/profile/index",
+      "style": {
+        "navigationBarTitleText": "个人中心",
+        "navigationStyle": "custom"
+      }
+    },
+	{
+	  "path": "pages/login/index",
+	  "style": {
+	    "navigationStyle": "custom"
+	  }
+	},
+	{
+	  "path": "pages/profile/edit",
+	  "style": {
+	    "navigationStyle": "custom"
+	  }
+	},
+	{
+	  "path": "pages/errand/publish",
+	  "style": {
+	    "navigationStyle": "custom"
+	  }
+	},
+	{
+	  "path": "pages/errand/detail",
+	  "style": {
+	    "navigationStyle": "custom"
+	  }
+	},
+	{
+	  "path": "pages/profile/my-errands",
+	  "style": {
+	    "navigationStyle": "custom"
+	  }
+	},
+	{
+	  "path": "pages/profile/follow-list",
+	  "style": {
+	    "navigationStyle": "custom"
+	  }
+	},
+	{
+	  "path": "pages/user/home",
+	  "style": {
+	    "navigationBarTitleText": "他人主页"
+	  }
+	},
+	{
+	  "path": "pages/profile/my-post",
+	  "style": {
+	    "navigationStyle": "custom"
+	  }
+	},
+	
+	{
+	  "path": "pages/profile/my-collection",
+	  "style": {
+	   "navigationStyle": "custom"
+	  }
+	},
+	{
+	  "path": "pages/admin/report-list",
+	  "style": {
+	    "navigationStyle": "custom", // 必须隐藏原生导航栏，因为你的页面代码里有自定义头部
+	    "enablePullDownRefresh": false
+	  }
+	},
+	// [新增] 注册页面
+	    {
+	      "path": "pages/login/register",
+	      "style": {
+	        "navigationStyle": "custom", // 这里可以用默认导航栏，或者 custom 随你
+	        "navigationBarTitleText": "注册账号"
+	      }
+	    }
+    
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "码住校园",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "color": "#7A7E83",
+    "selectedColor": "#52C41A",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/errand/index",
+        "text": "跑腿"
+      },
+      {
+        "pagePath": "pages/message/index",
+        "text": "消息"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
+  }
+}

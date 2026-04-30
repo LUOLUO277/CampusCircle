@@ -1,0 +1,18 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+
+# Backend runtime
+backend/target/
+backend/data/
+backend/logs/
+backend/uploads/
+backend/startup.log
+backend/startup.err
+
+# Frontend runtime
+frontend/unpackage/
+
+# Local env / caches
+*.log
