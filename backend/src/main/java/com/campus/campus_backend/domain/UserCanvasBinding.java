@@ -32,13 +32,15 @@ public class UserCanvasBinding {
     @Column(name = "canvas_password", nullable = false, length = 255)
     private String canvasPassword;
 
-    @Column(name = "session_cookies_json", columnDefinition = "json")
+    @Lob
+    @Column(name = "session_cookies_json", columnDefinition = "TEXT")
     private String sessionCookiesJson;
 
     @Column(name = "session_refreshed_at")
     private LocalDateTime sessionRefreshedAt;
 
-    @Column(name = "course_ids_json", columnDefinition = "json")
+    @Lob
+    @Column(name = "course_ids_json", columnDefinition = "TEXT")
     private String courseIdsJson;
 
     @Column(name = "include_todo", nullable = false)

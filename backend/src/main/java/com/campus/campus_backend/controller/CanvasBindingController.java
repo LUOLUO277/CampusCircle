@@ -39,6 +39,11 @@ public class CanvasBindingController {
         return Result.ok(canvasBindingService.sync(requireUser(principal)));
     }
 
+    @PostMapping("/browser-login")
+    public Result<Object> browserLogin(@AuthenticationPrincipal UserDetails principal) {
+        return Result.ok(canvasBindingService.browserLogin(requireUser(principal)));
+    }
+
     @DeleteMapping
     public Result<Object> disconnect(@AuthenticationPrincipal UserDetails principal) {
         return Result.ok(canvasBindingService.disconnect(requireUser(principal)));

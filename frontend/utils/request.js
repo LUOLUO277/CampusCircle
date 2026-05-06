@@ -52,6 +52,14 @@ const responseInterceptor = (response) => {
   }
 
   if (statusCode === 200) {
+    if (typeof data === 'string' && /^\s*<!doctype html/i.test(data)) {
+      const hint =
+        'Request returned HTML (likely hit the H5 dev server instead of backend). ' +
+        'Check devBackendOrigin storage or ensure baseURL points to http://localhost:8080/api.'
+      uni.showToast({ title: hint, icon: 'none', duration: 2500 })
+      return Promise.reject(new Error(hint))
+    }
+
     if (data.code === 0 || data.code === 200) {
       return data
     }
@@ -84,8 +92,16 @@ const responseInterceptor = (response) => {
 }
 
 const executeRequest = (config, resolve, reject) => {
+  const baseUrl = getBaseUrl()
+  const finalUrl = baseUrl + config.url
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[baseUrl]', baseUrl)
+    console.log('[finalUrl]', finalUrl)
+  }
+
   const finalConfig = requestInterceptor({
-    url: getBaseUrl() + config.url,
+    url: finalUrl,
     method: config.method || 'GET',
     data: config.data || {},
     header: {

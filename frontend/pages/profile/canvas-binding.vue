@@ -78,6 +78,7 @@ import {
   getCanvasBinding,
   saveCanvasBinding,
   syncCanvasBinding,
+  browserLoginCanvasBinding,
   disconnectCanvasBinding
 } from '@/api/info-center'
 
@@ -162,6 +163,31 @@ export default {
           uni.showToast({ title: `同步完成 ${res.data.successCount || 0} 条`, icon: 'none' })
         }
         await this.loadBinding()
+      } catch (err) {
+        const message = (err && err.message) || ''
+        if (message.includes('CAPTCHA_REQUIRED')) {
+          uni.hideLoading()
+          const modalRes = await uni.showModal({
+            title: '需要验证码',
+            content: '学校统一认证需要验证码/二次验证。是否现在打开浏览器完成一次登录，然后自动重试同步？',
+            confirmText: '去登录',
+            cancelText: '取消'
+          })
+          if (!modalRes.confirm) return
+
+          uni.showLoading({ title: '打开浏览器登录...' })
+          await browserLoginCanvasBinding()
+          await this.loadBinding()
+
+          uni.showLoading({ title: '重试同步...' })
+          const retry = await syncCanvasBinding()
+          if (retry.code === 200) {
+            uni.showToast({ title: `同步完成 ${retry.data.successCount || 0} 条`, icon: 'none' })
+          }
+          await this.loadBinding()
+          return
+        }
+        throw err
       } finally {
         uni.hideLoading()
       }

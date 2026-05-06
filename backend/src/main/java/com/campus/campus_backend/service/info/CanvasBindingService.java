@@ -10,6 +10,8 @@ import com.campus.campus_backend.repository.SubscriptionSourceRepository;
 import com.campus.campus_backend.repository.UserCanvasBindingRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,22 +24,26 @@ import java.util.Optional;
 
 @Service
 public class CanvasBindingService {
+    private static final Logger log = LoggerFactory.getLogger(CanvasBindingService.class);
     public static final String PERSONAL_CANVAS_SOURCE_KEY = "canvas-personal";
 
     private final UserCanvasBindingRepository userCanvasBindingRepository;
     private final SubscriptionSourceRepository subscriptionSourceRepository;
     private final CanvasSessionFetcher canvasSessionFetcher;
+    private final CanvasBrowserLoginService canvasBrowserLoginService;
     private final NoticeIngestionService noticeIngestionService;
     private final ObjectMapper objectMapper;
 
     public CanvasBindingService(UserCanvasBindingRepository userCanvasBindingRepository,
             SubscriptionSourceRepository subscriptionSourceRepository,
             CanvasSessionFetcher canvasSessionFetcher,
+            CanvasBrowserLoginService canvasBrowserLoginService,
             NoticeIngestionService noticeIngestionService,
             ObjectMapper objectMapper) {
         this.userCanvasBindingRepository = userCanvasBindingRepository;
         this.subscriptionSourceRepository = subscriptionSourceRepository;
         this.canvasSessionFetcher = canvasSessionFetcher;
+        this.canvasBrowserLoginService = canvasBrowserLoginService;
         this.noticeIngestionService = noticeIngestionService;
         this.objectMapper = objectMapper;
     }
@@ -111,6 +117,13 @@ public class CanvasBindingService {
             data.put("diagnostics", fetchResult.getDiagnostics());
             return data;
         } catch (CanvasSessionFetcher.CanvasSyncException e) {
+            if (e.getDiagnostics() != null) {
+                for (String item : e.getDiagnostics()) {
+                    if (item != null && !item.isBlank()) {
+                        log.warn("CANVAS_DIAG {}", item);
+                    }
+                }
+            }
             binding.setLastSyncedAt(LocalDateTime.now());
             binding.setLastSyncStatus(e.getClassification());
             binding.setLastSyncMessage(buildSyncMessage(e.getClassification(), e.getDiagnostics()));
@@ -122,6 +135,40 @@ public class CanvasBindingService {
             binding.setLastSyncMessage(shortMessage(e.getMessage()));
             userCanvasBindingRepository.save(binding);
             throw new BizException(ErrorCode.BAD_REQUEST.getCode(), "Canvas sync failed: " + shortMessage(e.getMessage()));
+        }
+    }
+
+    @Transactional
+    public Map<String, Object> browserLogin(User user) {
+        UserCanvasBinding binding = userCanvasBindingRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND));
+        if (binding.getBaseUrl() == null || binding.getBaseUrl().isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST.getCode(), "Canvas baseUrl is required");
+        }
+        if (binding.getCanvasUsername() == null || binding.getCanvasUsername().isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST.getCode(), "Canvas username is required");
+        }
+        if (binding.getCanvasPassword() == null || binding.getCanvasPassword().isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST.getCode(), "Canvas password is required");
+        }
+
+        try {
+            Map<String, String> cookies = canvasBrowserLoginService.loginAndExportCookieSnapshot(
+                    binding.getBaseUrl(),
+                    binding.getCanvasUsername(),
+                    binding.getCanvasPassword(),
+                    java.time.Duration.ofMinutes(3));
+            binding.setSessionCookiesJson(writeCookies(cookies));
+            binding.setSessionRefreshedAt(LocalDateTime.now());
+            binding.setLastSyncStatus("SESSION_REFRESHED");
+            binding.setLastSyncMessage(truncateForClient("Browser login succeeded. Session cookies refreshed=" + cookies.keySet(), 500));
+            userCanvasBindingRepository.save(binding);
+            return toBindingMap(binding);
+        } catch (Exception e) {
+            binding.setLastSyncStatus("BROWSER_LOGIN_FAILED");
+            binding.setLastSyncMessage(shortMessage(e.getMessage()));
+            userCanvasBindingRepository.save(binding);
+            throw new BizException(ErrorCode.BAD_REQUEST.getCode(), "Canvas browser login failed: " + shortMessage(e.getMessage()));
         }
     }
 
@@ -215,6 +262,21 @@ public class CanvasBindingService {
         String joined = diagnostics == null || diagnostics.isEmpty() ? "" : String.join(" | ", diagnostics);
         String prefix = classification == null ? "Canvas sync diagnostics" : classification;
         String raw = joined.isBlank() ? prefix : prefix + " | " + joined;
-        return raw.length() > 500 ? raw.substring(0, 500) : raw;
+        return truncateForClient(raw, 500);
+    }
+
+    private String truncateForClient(String value, int maxLen) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() <= maxLen) {
+            return value;
+        }
+        int head = Math.min(220, maxLen / 2);
+        int tail = Math.min(260, maxLen - head - 5);
+        if (tail <= 0) {
+            return value.substring(0, maxLen);
+        }
+        return value.substring(0, head) + " ... " + value.substring(value.length() - tail);
     }
 }

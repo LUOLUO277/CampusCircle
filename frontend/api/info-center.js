@@ -30,4 +30,5 @@ export const offlineManualNotice = (id) => request.post(`/admin/info-center/noti
 export const getCanvasBinding = () => request.get('/canvas-binding')
 export const saveCanvasBinding = (data) => request.put('/canvas-binding', data)
 export const syncCanvasBinding = () => request.post('/canvas-binding/sync')
+export const browserLoginCanvasBinding = () => request.post('/canvas-binding/browser-login')
 export const disconnectCanvasBinding = () => request.delete('/canvas-binding')

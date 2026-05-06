@@ -2,6 +2,8 @@ package com.campus.campus_backend.service.info;
 
 import com.campus.campus_backend.domain.SubscriptionSource;
 import com.campus.campus_backend.domain.UserCanvasBinding;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -39,9 +41,11 @@ public class CanvasSessionFetcher {
 
     private final RemoteNoticeSupport remoteNoticeSupport;
     private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
-    public CanvasSessionFetcher(RemoteNoticeSupport remoteNoticeSupport) {
+    public CanvasSessionFetcher(RemoteNoticeSupport remoteNoticeSupport, ObjectMapper objectMapper) {
         this.remoteNoticeSupport = remoteNoticeSupport;
+        this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(Duration.ofSeconds(15))
@@ -53,14 +57,38 @@ public class CanvasSessionFetcher {
         List<String> diagnostics = new ArrayList<>();
         CookieJar cookies = new CookieJar();
 
+        if (binding.getSessionCookiesJson() != null && !binding.getSessionCookiesJson().isBlank()) {
+            seedCookiesFromBinding(binding.getSessionCookiesJson(), cookies, diagnostics);
+            try {
+                HttpResult probe = get(baseUrl, Map.of("Referer", baseUrl), cookies);
+                diagnostics.add(describe("session-probe", probe));
+                probe = followRedirects(probe, cookies, diagnostics, "session-probe");
+                boolean loginLike = looksLikeLoginPage(probe.body) || isIamUrl(probe.url) || (probe.url != null && probe.url.contains("/login"));
+                if (!loginLike) {
+                    diagnostics.add("login-classification=LOGIN_SUCCESS_REUSED_SESSION");
+                    log.info("Canvas login reused session for user {}: {}", binding.getCanvasUsername(), String.join(" | ", diagnostics));
+                    return new LoginResult(cookies, probe.url, diagnostics);
+                }
+            } catch (Exception e) {
+                diagnostics.add("session-probe-error=" + shortMessage(e.getMessage()));
+            }
+        }
+
         HttpResult current = get(baseUrl, Map.of(), cookies);
         diagnostics.add(describe("entry-home", current));
         current = followRedirects(current, cookies, diagnostics, "entry-home");
 
         if (!looksLikeCredentialForm(current.body) && !isIamUrl(current.url)) {
-            HttpResult canvasLogin = get(baseUrl + "/login/canvas", Map.of("Referer", baseUrl), cookies);
-            diagnostics.add(describe("entry-canvas-login", canvasLogin));
-            current = followRedirects(canvasLogin, cookies, diagnostics, "entry-canvas-login");
+            HttpResult samlLogin = get(baseUrl + "/login/saml", Map.of("Referer", baseUrl), cookies);
+            diagnostics.add(describe("entry-saml-login", samlLogin));
+            samlLogin = followRedirects(samlLogin, cookies, diagnostics, "entry-saml-login");
+            if (looksLikeCredentialForm(samlLogin.body) || isIamUrl(samlLogin.url)) {
+                current = samlLogin;
+            } else {
+                HttpResult canvasLogin = get(baseUrl + "/login/canvas", Map.of("Referer", baseUrl), cookies);
+                diagnostics.add(describe("entry-canvas-login", canvasLogin));
+                current = followRedirects(canvasLogin, cookies, diagnostics, "entry-canvas-login");
+            }
         }
 
         diagnostics.add("credential-inputs=" + describeInputNames(current.body));
@@ -70,14 +98,19 @@ public class CanvasSessionFetcher {
             throw new CanvasSyncException("LOGIN_FAILED", "Could not locate IAM login form.", diagnostics);
         }
 
+        if (requiresHumanVerification(current.body)) {
+            diagnostics.add("credential-requires-verification=j_checkcode");
+            throw new CanvasSyncException("CAPTCHA_REQUIRED",
+                    "Tongji IAM requires verification code (captcha). Automated HTTP login cannot proceed.",
+                    diagnostics);
+        }
+
         String actionUrl = resolveUrl(current.url, extractFormAction(current.body, current.url));
-        Map<String, String> form = extractFormInputsForSubmit(current.body);
+        List<FormField> form = extractFormFieldsForSubmit(current.body);
         diagnostics.add("credential-source-fields=" + describeInterestingInputs(current.body));
         List<String> credentialTargets = applyCredentials(form, current.body, binding.getCanvasUsername(), binding.getCanvasPassword());
-        if (!form.containsKey("_eventId")) {
-            form.put("_eventId", "submit");
-        }
-        diagnostics.add("credential-action=" + actionUrl + " formKeys=" + form.keySet()
+        ensureField(form, "_eventId", "submit");
+        diagnostics.add("credential-action=" + actionUrl + " formFields=" + summarizeFields(form)
                 + " credentialTargets=" + credentialTargets
                 + " credentialDefaults=" + summarizeCredentialDefaults(form));
 
@@ -315,6 +348,33 @@ public class CanvasSessionFetcher {
         }
     }
 
+    private HttpResult postForm(String url, List<FormField> form, Map<String, String> headers, CookieJar cookies) {
+        try {
+            URI requestUri = URI.create(url);
+            String cookieHeader = cookies.headerValue(requestUri);
+            HttpRequest.Builder builder = HttpRequest.newBuilder(requestUri)
+                    .POST(HttpRequest.BodyPublishers.ofString(formUrlEncode(form)))
+                    .timeout(Duration.ofSeconds(20))
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+            headers.forEach(builder::header);
+            if (!cookieHeader.isBlank()) {
+                builder.header("Cookie", cookieHeader);
+            }
+            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            HttpResult result = toResult(response);
+            result.requestCookieSummary = cookies.describeFor(requestUri);
+            result.responseCookieSummary = describeResponseCookies(result.cookies);
+            cookies.mergeFrom(requestUri, result.cookies);
+            result.jarCookieSummary = cookies.describeFor(requestUri);
+            return result;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to submit login form", e);
+        }
+    }
+
     private HttpResult toResult(HttpResponse<String> response) {
         return new HttpResult(
                 response.uri().toString(),
@@ -335,8 +395,8 @@ public class CanvasSessionFetcher {
         return values;
     }
 
-    private Map<String, String> extractFormInputsForSubmit(String html) {
-        Map<String, String> values = new LinkedHashMap<>();
+    private List<FormField> extractFormFieldsForSubmit(String html) {
+        List<FormField> values = new ArrayList<>();
         for (Map<String, String> input : parseInputs(html)) {
             String name = input.get("name");
             if (name == null || name.isBlank()) {
@@ -345,8 +405,9 @@ public class CanvasSessionFetcher {
             String type = input.getOrDefault("type", "text").toLowerCase();
             if (type.equals("hidden") || type.equals("text") || type.equals("password")
                     || type.equals("email") || type.equals("tel") || type.equals("search")
-                    || type.equals("number") || type.equals("url")) {
-                values.putIfAbsent(name, input.getOrDefault("value", ""));
+                    || type.equals("number") || type.equals("url")
+                    || type.equals("submit") || type.equals("button")) {
+                values.add(new FormField(name, input.getOrDefault("value", "")));
             }
         }
         return values;
@@ -388,7 +449,7 @@ public class CanvasSessionFetcher {
         return "password";
     }
 
-    private List<String> applyCredentials(Map<String, String> form, String html, String username, String password) {
+    private List<String> applyCredentials(List<FormField> form, String html, String username, String password) {
         List<String> touched = new ArrayList<>();
         Set<String> usernameFields = new LinkedHashSet<>();
         Set<String> passwordFields = new LinkedHashSet<>();
@@ -420,31 +481,65 @@ public class CanvasSessionFetcher {
                 passwordFields.add(name);
             }
         }
+        for (FormField field : form) {
+            if (usernameFields.contains(field.name)) {
+                field.value = username;
+            }
+            if (passwordFields.contains(field.name)) {
+                field.value = password;
+            }
+        }
         for (String field : usernameFields) {
-            form.put(field, username);
             touched.add(field + "=<username>");
         }
         for (String field : passwordFields) {
-            form.put(field, password);
             touched.add(field + "=<password>");
         }
-        if (looksSuspiciousOpValue(form.get("op"))) {
-            form.remove("op");
+
+        boolean removedOp = false;
+        boolean removedPasswordInputId = false;
+        boolean removedCheckcode = false;
+        boolean blankedAuthenticatedUsername = false;
+        for (int i = form.size() - 1; i >= 0; i--) {
+            FormField field = form.get(i);
+            if ("op".equals(field.name) && looksSuspiciousOpValue(field.value)) {
+                form.remove(i);
+                removedOp = true;
+                continue;
+            }
+            if ("passwordInputID".equals(field.name) && (field.value == null || field.value.isBlank())) {
+                form.remove(i);
+                removedPasswordInputId = true;
+                continue;
+            }
+            if ("j_checkcode".equals(field.name) && looksLikePlaceholder(field.value)) {
+                form.remove(i);
+                removedCheckcode = true;
+            }
+        }
+        if (removedOp) {
             touched.add("op=<removed>");
         }
-        if (form.containsKey("authenticatedUsername")) {
-            form.put("authenticatedUsername", "");
-            touched.add("authenticatedUsername=<blank>");
-        }
-        if (form.containsKey("passwordInputID") && (form.get("passwordInputID") == null || form.get("passwordInputID").isBlank())) {
-            form.remove("passwordInputID");
+        if (removedPasswordInputId) {
             touched.add("passwordInputID=<removed>");
         }
-        if (form.containsKey("j_checkcode") && (form.get("j_checkcode") == null || form.get("j_checkcode").isBlank())) {
-            form.remove("j_checkcode");
+        if (removedCheckcode) {
             touched.add("j_checkcode=<removed>");
         }
         return touched;
+    }
+
+    private boolean looksLikePlaceholder(String value) {
+        if (value == null) {
+            return true;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isBlank()) {
+            return true;
+        }
+        String lower = trimmed.toLowerCase();
+        return lower.contains("请输入") || lower.contains("please") || lower.contains("captcha") || lower.contains("checkcode")
+                || lower.contains("验证码");
     }
 
     private boolean looksSuspiciousOpValue(String opValue) {
@@ -486,6 +581,87 @@ public class CanvasSessionFetcher {
                 .anyMatch(input -> "password".equalsIgnoreCase(input.getOrDefault("type", "")));
     }
 
+    private boolean requiresHumanVerification(String html) {
+        for (Map<String, String> input : parseInputs(html)) {
+            String name = input.get("name");
+            if (name == null) {
+                continue;
+            }
+            if ("j_checkcode".equalsIgnoreCase(name)) {
+                String type = input.getOrDefault("type", "text").toLowerCase();
+                if (!"hidden".equals(type)) {
+                    return true;
+                }
+            }
+        }
+        String lower = Objects.toString(html, "").toLowerCase();
+        return lower.contains("验证码") || lower.contains("checkcode");
+    }
+
+    private void seedCookiesFromBinding(String sessionCookiesJson, CookieJar cookies, List<String> diagnostics) {
+        Map<String, String> snapshot = parseCookieSnapshot(sessionCookiesJson);
+        if (snapshot.isEmpty()) {
+            diagnostics.add("session-seed=<empty>");
+            return;
+        }
+        int added = 0;
+        for (Map.Entry<String, String> entry : snapshot.entrySet()) {
+            CookieParts parts = CookieParts.parse(entry.getKey());
+            if (parts == null) {
+                continue;
+            }
+            cookies.addManual(parts.name, entry.getValue(), parts.domain, parts.path, true);
+            added++;
+        }
+        diagnostics.add("session-seed-added=" + added);
+    }
+
+    private Map<String, String> parseCookieSnapshot(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, String>>() {});
+        } catch (Exception ignore) {
+            log.warn("Failed to parse sessionCookiesJson (len={}): {}", json.length(), shortMessage(ignore.getMessage()));
+            return Map.of();
+        }
+    }
+
+    private static final class CookieParts {
+        private final String name;
+        private final String domain;
+        private final String path;
+
+        private CookieParts(String name, String domain, String path) {
+            this.name = name;
+            this.domain = domain;
+            this.path = path;
+        }
+
+        private static CookieParts parse(String key) {
+            if (key == null || key.isBlank()) {
+                return null;
+            }
+            int at = key.indexOf('@');
+            if (at <= 0 || at >= key.length() - 1) {
+                return null;
+            }
+            String name = key.substring(0, at);
+            String rest = key.substring(at + 1);
+            int slash = rest.indexOf('/');
+            if (slash <= 0) {
+                return null;
+            }
+            String domain = rest.substring(0, slash).toLowerCase();
+            String path = rest.substring(slash);
+            if (!path.startsWith("/")) {
+                path = "/" + path;
+            }
+            return new CookieParts(name, domain, path);
+        }
+    }
+
     private boolean looksLikeAutoPostForm(String html) {
         String text = Objects.toString(html, "");
         return text.contains("SAMLResponse") || (text.contains("<form") && !text.contains("type=\"password\""));
@@ -497,7 +673,11 @@ public class CanvasSessionFetcher {
                 || lower.contains("统一身份认证")
                 || lower.contains("cas login")
                 || lower.contains("authnengine")
-                || lower.contains("请输入密码");
+                || lower.contains("请输入密码")
+                || lower.contains("canvas lms")
+                || lower.contains("/login/openid_connect")
+                || lower.contains("/login/canvas")
+                || lower.contains("/login/saml");
     }
 
     private boolean isIamUrl(String url) {
@@ -574,6 +754,40 @@ public class CanvasSessionFetcher {
             first = false;
         }
         return builder.toString();
+    }
+
+    private String formUrlEncode(List<FormField> form) {
+        StringBuilder builder = new StringBuilder();
+        boolean first = true;
+        for (FormField field : form) {
+            if (!first) {
+                builder.append("&");
+            }
+            builder.append(encode(field.name)).append("=").append(encode(field.value));
+            first = false;
+        }
+        return builder.toString();
+    }
+
+    private void ensureField(List<FormField> form, String name, String value) {
+        boolean found = false;
+        for (FormField field : form) {
+            if (name.equals(field.name)) {
+                field.value = value;
+                found = true;
+            }
+        }
+        if (!found) {
+            form.add(new FormField(name, value));
+        }
+    }
+
+    private String summarizeFields(List<FormField> fields) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (FormField field : fields) {
+            counts.merge(field.name, 1, Integer::sum);
+        }
+        return "total=" + fields.size() + " names=" + counts;
     }
 
     private String encode(String value) {
@@ -670,6 +884,33 @@ public class CanvasSessionFetcher {
             }
         }
         return names.isEmpty() ? "<none>" : names.toString();
+    }
+
+    private String summarizeCredentialDefaults(List<FormField> form) {
+        List<String> values = new ArrayList<>();
+        for (FormField field : form) {
+            String key = field.name;
+            String value = field.value;
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+            String lower = key.toLowerCase();
+            if (lower.contains("user") || lower.contains("password") || lower.equals("op") || lower.contains("auth")) {
+                String normalized = value;
+                if (lower.contains("password")) {
+                    normalized = "<password>";
+                } else if (lower.contains("user")) {
+                    normalized = "<username>";
+                } else if (normalized == null || normalized.isBlank()) {
+                    normalized = "<blank>";
+                }
+                values.add(key + "=" + normalized);
+                if (values.size() >= 12) {
+                    break;
+                }
+            }
+        }
+        return values.isEmpty() ? "<none>" : values.toString();
     }
 
     private String summarizeCredentialDefaults(Map<String, String> form) {
@@ -818,6 +1059,16 @@ public class CanvasSessionFetcher {
         }
     }
 
+    private static final class FormField {
+        private final String name;
+        private String value;
+
+        private FormField(String name, String value) {
+            this.name = name;
+            this.value = value;
+        }
+    }
+
     private static final class HttpResult {
         private final String url;
         private final String body;
@@ -841,6 +1092,24 @@ public class CanvasSessionFetcher {
 
     private static final class CookieJar {
         private final List<StoredCookie> cookies = new ArrayList<>();
+
+        private void addManual(String name, String value, String domain, String path, boolean secure) {
+            if (name == null || name.isBlank()) {
+                return;
+            }
+            String normalizedDomain = Optional.ofNullable(domain).orElse("").toLowerCase();
+            if (normalizedDomain.startsWith(".")) {
+                normalizedDomain = normalizedDomain.substring(1);
+            }
+            String normalizedPath = (path == null || path.isBlank()) ? "/" : path;
+            if (!normalizedPath.startsWith("/")) {
+                normalizedPath = "/" + normalizedPath;
+            }
+            StoredCookie stored = new StoredCookie(name, value == null ? "" : value, normalizedDomain, normalizedPath, secure, -1,
+                    System.currentTimeMillis());
+            cookies.removeIf(existing -> existing.sameIdentity(stored));
+            cookies.add(stored);
+        }
 
         private void mergeFrom(URI requestUri, List<HttpCookie> responseCookies) {
             if (responseCookies == null || responseCookies.isEmpty()) {
@@ -958,7 +1227,13 @@ public class CanvasSessionFetcher {
         }
 
         private boolean expired() {
-            return maxAge == 0 || (maxAge > 0 && System.currentTimeMillis() - storedAtMillis > maxAge * 1000);
+            if (maxAge == 0) {
+                return true;
+            }
+            if (maxAge < 0) {
+                return false;
+            }
+            return System.currentTimeMillis() - storedAtMillis > maxAge * 1000;
         }
     }
 }
