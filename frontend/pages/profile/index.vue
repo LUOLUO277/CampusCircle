@@ -78,11 +78,29 @@
 
       <!-- 管理员入口 -->
       <view
+        v-if="userStore.isLoggedIn"
+        class="menu-item"
+        @click="handleCanvasBinding"
+      >
+        <text>Canvas 杩炴帴</text>
+        <text class="arrow">></text>
+      </view>
+
+      <view
         v-if="userStore.isAdmin"
         class="menu-item admin-entry"
         @click="handleAdmin"
       >
         <text>🛡️ 内容审核后台</text>
+        <text class="arrow">></text>
+      </view>
+
+      <view
+        v-if="userStore.isAdmin"
+        class="menu-item admin-entry secondary"
+        @click="handleInfoAdmin"
+      >
+        <text>📮 信息订阅后台</text>
         <text class="arrow">></text>
       </view>
 
@@ -208,6 +226,11 @@ const handleSettings = () => {
 /**
  * 跳转到我的跑腿页面
  */
+const handleCanvasBinding = () => {
+  if (!userStore.isLoggedIn) return uni.navigateTo({ url: '/pages/login/index' })
+  uni.navigateTo({ url: '/pages/profile/canvas-binding' })
+}
+
 const handleMyErrands = () => {
   if (!userStore.isLoggedIn) return uni.navigateTo({ url: '/pages/login/index' })
   uni.navigateTo({ url: '/pages/profile/my-errands' })
@@ -250,6 +273,10 @@ const goToFollowList = () => {
  */
 const handleAdmin = () => {
   uni.navigateTo({ url: '/pages/admin/report-list' })
+}
+
+const handleInfoAdmin = () => {
+  uni.navigateTo({ url: '/pages/admin/info-center' })
 }
 
 /**
@@ -474,5 +501,13 @@ const handleLogout = () => {
 .admin-entry text {
   color: #d4380d;
   font-weight: bold;
+}
+
+.admin-entry.secondary {
+  background-color: #edf7ee;
+}
+
+.admin-entry.secondary text {
+  color: #1f5f46;
 }
 </style>

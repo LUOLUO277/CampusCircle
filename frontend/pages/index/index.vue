@@ -30,6 +30,14 @@
         />
     </view>
 
+    <view class="info-entry" @click="goInfoCenter">
+      <view>
+        <text class="info-entry-title">信息订阅中心</text>
+        <text class="info-entry-subtitle">聚合公众号、教务与 Canvas 通知</text>
+      </view>
+      <text class="info-entry-arrow">></text>
+    </view>
+
     <!-- 热门话题 -->
     <HotTopics 
       :topics="topics"
@@ -259,6 +267,10 @@ export default {
       uni.navigateTo({ url: '/pages/hot-posts/list' });
     },
 
+    goInfoCenter() {
+      uni.navigateTo({ url: '/pages/info-center/index' });
+    },
+
     switchTab(tabId) {
       if (tabId === 'publish') {
         uni.navigateTo({ url: '/pages/publish/index' });
@@ -418,6 +430,39 @@ export default {
 .search-text {
   color: #999;
   font-size: 28rpx;
+}
+
+.info-entry {
+  margin: 0 30rpx 20rpx;
+  padding: 28rpx 30rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #1f5f46 0%, #2f855a 65%, #e7f0dc 100%);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10rpx 28rpx rgba(31, 95, 70, 0.18);
+}
+
+.info-entry-title,
+.info-entry-subtitle {
+  display: block;
+}
+
+.info-entry-title {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.info-entry-subtitle {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  opacity: 0.9;
+}
+
+.info-entry-arrow {
+  font-size: 34rpx;
+  font-family: monospace;
 }
 
 /* 帖子列表 */
