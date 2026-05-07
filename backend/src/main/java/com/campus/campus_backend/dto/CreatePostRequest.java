@@ -13,7 +13,14 @@ public class CreatePostRequest {
     private List<String> images;
     private Boolean isAnonymous;
     private Map<String, Object> product;
+    private VotePayload vote;
     private Long topicId;
     private String topicName;
     private Long categoryId;
+
+    @Data
+    public static class VotePayload {
+        private List<String> options;
+        private Boolean multiple;
+    }
 }

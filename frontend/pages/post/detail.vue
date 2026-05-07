@@ -50,6 +50,33 @@
           ></image>
         </view>
 
+        <!-- 投票 -->
+        <view v-if="post.vote && post.vote.options && post.vote.options.length" class="vote-card">
+          <view class="vote-header">
+            <text class="vote-title">投票</text>
+            <text class="vote-subtitle">{{ post.vote.totalVotes || 0 }} 人参与</text>
+          </view>
+          <view class="vote-options">
+            <view
+              v-for="opt in post.vote.options"
+              :key="opt.id"
+              class="vote-option"
+              :class="{ selected: post.vote.myOptionId === opt.id }"
+              @click="handleVote(opt)"
+            >
+              <view class="vote-option-row">
+                <text class="vote-option-text">{{ opt.text }}</text>
+                <text class="vote-option-count">{{ opt.count || 0 }}票</text>
+              </view>
+              <view class="vote-bar">
+                <view class="vote-bar-fill" :style="{ width: (opt.percent || 0) + '%' }"></view>
+              </view>
+            </view>
+          </view>
+          <text v-if="post.vote.myOptionId" class="vote-hint">已投票</text>
+          <text v-else class="vote-hint">点击选项投票</text>
+        </view>
+
         <!-- 操作栏 -->
         <view class="action-bar">
           <view class="action-item" @click="handleCollect">
@@ -208,7 +235,7 @@
 </template>
 
 <script>
-import { getPostDetail, getPostComments, likePost, collectPost, addComment, likeComment, reportPost, reportComment } from '../../api/post.js';
+import { getPostDetail, getPostComments, likePost, collectPost, addComment, likeComment, reportPost, reportComment, votePost } from '../../api/post.js';
 import { getBackendOrigin } from '@/utils/api'
 
 // ✅ 必须配置：请将此处改为你的电脑 IP (手机调试) 或 localhost (电脑调试)
@@ -286,6 +313,26 @@ export default {
         this.isCollected = !!res.data.isCollected;
       } else {
         uni.showToast({ title: res.message, icon: 'none' });
+      }
+    },
+
+    async handleVote(option) {
+      if (!option || !option.id) return
+      if (this.post.vote && this.post.vote.myOptionId) {
+        uni.showToast({ title: '已投票', icon: 'none' })
+        return
+      }
+      try {
+        uni.showLoading({ title: '投票中...' })
+        const res = await votePost(this.postId, option.id)
+        if (res.code === 200) {
+          this.post = { ...this.post, vote: res.data }
+          uni.showToast({ title: '投票成功', icon: 'none' })
+        }
+      } catch (e) {
+        uni.showToast({ title: e.message || '投票失败', icon: 'none' })
+      } finally {
+        uni.hideLoading()
       }
     },
     
@@ -642,6 +689,21 @@ export default {
 .content-text { font-size: 30rpx; color: #333; line-height: 1.6; white-space: pre-wrap; }
 .post-images { display: flex; flex-wrap: wrap; gap: 10rpx; margin-bottom: 20rpx; }
 .post-image { width: 220rpx; height: 220rpx; border-radius: 10rpx; }
+
+/* 投票 */
+.vote-card { margin-bottom: 20rpx; padding: 22rpx; border-radius: 16rpx; background: #f8fafc; border: 1rpx solid #eef2f7; }
+.vote-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
+.vote-title { font-size: 28rpx; font-weight: 700; color: #0f172a; }
+.vote-subtitle { font-size: 24rpx; color: #64748b; }
+.vote-options { display: flex; flex-direction: column; gap: 14rpx; }
+.vote-option { padding: 16rpx; border-radius: 14rpx; background: #fff; border: 1rpx solid #e2e8f0; }
+.vote-option.selected { border-color: #22c55e; background: #f0fdf4; }
+.vote-option-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10rpx; }
+.vote-option-text { font-size: 26rpx; color: #0f172a; }
+.vote-option-count { font-size: 24rpx; color: #475569; }
+.vote-bar { height: 10rpx; border-radius: 999rpx; background: #e2e8f0; overflow: hidden; }
+.vote-bar-fill { height: 100%; border-radius: 999rpx; background: linear-gradient(90deg, #22c55e, #16a34a); }
+.vote-hint { margin-top: 12rpx; display: block; font-size: 24rpx; color: #64748b; }
 
 /* 操作栏 */
 .action-bar { display: flex; justify-content: space-around; padding-top: 20rpx; border-top: 1rpx solid #eee; }

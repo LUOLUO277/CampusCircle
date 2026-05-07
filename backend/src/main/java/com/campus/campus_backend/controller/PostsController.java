@@ -13,8 +13,10 @@ import com.campus.campus_backend.repository.NotificationRepository;
 import com.campus.campus_backend.repository.PointTransactionRepository;
 import com.campus.campus_backend.repository.PostCollectionRepository;
 import com.campus.campus_backend.repository.PostLikeRepository;
+import com.campus.campus_backend.repository.PostPollRepository;
 import com.campus.campus_backend.repository.PostRepository;
 import com.campus.campus_backend.repository.UserRepository;
+import com.campus.campus_backend.service.PostPollService;
 import com.campus.campus_backend.vo.PostPublishRespVO;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,6 +54,8 @@ public class PostsController {
     private final PointTransactionRepository pointTransactionRepository;
     private final NotificationRepository notificationRepository;
     private final SysFileRepository sysFileRepository;
+    private final PostPollService postPollService;
+    private final PostPollRepository postPollRepository;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public PostsController(PostRepository postRepository,
@@ -63,7 +67,9 @@ public class PostsController {
             PointTransactionRepository pointTransactionRepository,
             CommentLikeRepository commentLikeRepository,
             NotificationRepository notificationRepository,
-            SysFileRepository sysFileRepository) {
+            SysFileRepository sysFileRepository,
+            PostPollService postPollService,
+            PostPollRepository postPollRepository) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
@@ -74,6 +80,8 @@ public class PostsController {
         this.commentLikeRepository = commentLikeRepository;
         this.notificationRepository = notificationRepository;
         this.sysFileRepository = sysFileRepository;
+        this.postPollService = postPollService;
+        this.postPollRepository = postPollRepository;
     }
 
     @PostMapping
@@ -98,6 +106,12 @@ public class PostsController {
                 throw new BizException(ErrorCode.BAD_REQUEST.getCode(), "分类未配置");
             }
             category = all.get(0);
+        }
+
+        if (req.getCategoryId() != null && req.getCategoryId() == 4L) {
+            if (req.getVote() == null || req.getVote().getOptions() == null) {
+                throw new BizException(ErrorCode.BAD_REQUEST.getCode(), "vote options required");
+            }
         }
 
         Post p = new Post();
@@ -168,6 +182,12 @@ public class PostsController {
         vo.setComments(p.getCommentCount());
         vo.setLikes(p.getLikeCount());
         vo.setShares(0);
+
+        // 如果是投票帖子，创建投票
+        if (req.getCategoryId() != null && req.getCategoryId() == 4L) {
+            boolean multiple = Boolean.TRUE.equals(req.getVote().getMultiple());
+            postPollService.createPollForPost(p, req.getVote().getOptions(), multiple);
+        }
 
         return Result.ok(vo);
     }
@@ -335,6 +355,11 @@ public class PostsController {
             item.put("comments", String.valueOf(p.getCommentCount()));
             item.put("likes", String.valueOf(p.getLikeCount()));
             item.put("isTop", Boolean.TRUE.equals(p.getIsSticky()));
+
+            // 投票摘要（列表只带一个标记，详情页再取完整）
+            if (p.getCategory() != null && p.getCategory().getId() != null && p.getCategory().getId() == 4L) {
+                item.put("hasVote", postPollRepository.findByPostId(p.getId()).isPresent());
+            }
 
             boolean isLiked = false;
             if (current != null) {
@@ -788,7 +813,41 @@ public class PostsController {
         data.put("collectCount", p.getCollectCount());
         data.put("commentCount", p.getCommentCount());
 
+        // 投票信息（如果有）
+        User currentUser = null;
+        if (principal != null) {
+            currentUser = userRepository.findByUsername(principal.getUsername()).orElse(null);
+        }
+        Map<String, Object> voteView = postPollService.buildPollView(p.getId(), currentUser);
+        if (voteView != null) {
+            data.put("vote", voteView);
+        }
+
         return Result.ok(data);
+    }
+
+    @PostMapping("/{postId}/vote")
+    @Transactional
+    public Result<Map<String, Object>> vote(@AuthenticationPrincipal UserDetails principal,
+            @PathVariable Long postId,
+            @RequestBody Map<String, Object> body) {
+        if (principal == null) {
+            throw new BizException(ErrorCode.UNAUTHORIZED);
+        }
+        User user = userRepository.findByUsername(principal.getUsername())
+                .orElseThrow(() -> new BizException(ErrorCode.UNAUTHORIZED));
+        if (body == null || !body.containsKey("optionId")) {
+            throw new BizException(ErrorCode.BAD_REQUEST.getCode(), "optionId required");
+        }
+        Long optionId;
+        Object v = body.get("optionId");
+        if (v instanceof Number n) {
+            optionId = n.longValue();
+        } else {
+            optionId = Long.parseLong(String.valueOf(v));
+        }
+        Map<String, Object> view = postPollService.vote(postId, optionId, user);
+        return Result.ok(view);
     }
 
     private String formatViews(int v) {

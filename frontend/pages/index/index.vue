@@ -5,8 +5,8 @@
       <view class="school-info">
         <view class="avatar">🎓</view>
         <view class="school-name">
-          <text class="name">码住校园圈</text>
-          <text class="sub-name">浙江大学城市学院</text>
+          <text class="name">nopay校园圈</text>
+          <text class="sub-name">同济大学！！</text>
         </view>
       </view>
       <view class="header-actions">

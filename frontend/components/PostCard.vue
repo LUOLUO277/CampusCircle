@@ -1,6 +1,6 @@
 <template>
   <view class="post-card">
-    <view v-if="post.isTop" class="top-badge">馃搶缃《</view>
+    <view v-if="post.isTop" class="top-badge">置顶</view>
 
     <view class="post-header">
       <view class="user-info" @click="handleUserClick">
@@ -40,26 +40,26 @@
     </view>
 
     <view class="product-info" v-if="post.product" @click="handleProductClick">
-      <text class="product-tag">馃洅 鍦ㄥ敭</text>
-      <text class="product-price">浠锋牸: 楼{{ post.product.price }}</text>
+      <text class="product-tag">在售</text>
+      <text class="product-price">价格 ¥{{ post.product.price }}</text>
     </view>
 
     <view class="post-footer">
       <view class="footer-item">
-        <text class="icon">馃憗</text>
+        <text class="icon">👁</text>
         <text>{{ formatNumber(post.views) }}</text>
       </view>
       <view class="footer-item" @click="handleTopClick">
-        <text class="icon">馃搶</text>
-        <text>{{ post.isTop ? '鍙栨秷缃《' : '缃《' }}</text>
+        <text class="icon">📌</text>
+        <text>{{ post.isTop ? '取消置顶' : '置顶' }}</text>
       </view>
 
       <view class="footer-item" @click="handleLikeClick">
-        <text class="icon">{{ isLiked ? '鉂わ笍' : '馃憤' }}</text>
+        <text class="icon">{{ isLiked ? '❤️' : '🤍' }}</text>
         <text>{{ formatNumber(post.likes) }}</text>
       </view>
       <view class="footer-item" @click="handleCommentClick">
-        <text class="icon">馃挰</text>
+        <text class="icon">💬</text>
         <text>{{ formatNumber(post.comments) }}</text>
       </view>
     </view>
@@ -92,7 +92,7 @@ export default {
       if (!num) return '0'
       const n = parseInt(num)
       if (n >= 10000) {
-        return (n / 10000).toFixed(1) + '涓?'
+        return (n / 10000).toFixed(1) + '万'
       }
       return num
     },

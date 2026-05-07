@@ -85,11 +85,17 @@ export const publishPost = async (data) => {
     content: data.content,
     images: data.images || [],
     product: data.product || null,
+    vote: data.vote || null,
     topicId: data.topicId || null,
     topicName: data.topicName || null
   };
   const res = await request.post('/posts', payload);
   return res;
+};
+
+// 投票
+export const votePost = async (postId, optionId) => {
+  return await request.post(`/posts/${postId}/vote`, { optionId });
 };
 
 /**

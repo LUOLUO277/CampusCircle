@@ -82,7 +82,7 @@
         class="menu-item"
         @click="handleCanvasBinding"
       >
-        <text>Canvas 杩炴帴</text>
+        <text>Canvas 账号登录</text>
         <text class="arrow">></text>
       </view>
 
