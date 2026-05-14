@@ -70,6 +70,16 @@ const responseInterceptor = (response) => {
       return Promise.reject(new Error('Login expired'))
     }
 
+    if (data.code === 403) {
+      const token = uni.getStorageSync(tokenKey)
+      if (!token) {
+        uni.reLaunch({ url: '/pages/login/index' })
+        return Promise.reject(new Error('Login required'))
+      }
+      uni.showToast({ title: data.message || 'Forbidden', icon: 'none', duration: 2000 })
+      return Promise.reject(new Error(data.message || 'Forbidden'))
+    }
+
     uni.showToast({
       title: data.message || 'Request failed',
       icon: 'none',

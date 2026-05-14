@@ -14,7 +14,8 @@ public class InfoCenterScheduler {
         this.canvasBindingService = canvasBindingService;
     }
 
-    @Scheduled(fixedDelay = 1800000)
+    // 加 initialDelay，避免应用启动时与数据初始化/清理并发导致外键约束异常
+    @Scheduled(fixedDelay = 1800000, initialDelay = 60000)
     public void pollSources() {
         for (SubscriptionSource source : infoCenterService.listActiveSources()) {
             try {

@@ -3,6 +3,9 @@ package com.campus.campus_backend.config;
 import com.campus.campus_backend.domain.User;
 import com.campus.campus_backend.domain.Category;
 import com.campus.campus_backend.domain.SubscriptionSource;
+import com.campus.campus_backend.repository.AggregatedNoticeRepository;
+import com.campus.campus_backend.repository.NoticeSubscriptionRepository;
+import com.campus.campus_backend.repository.SourceFetchLogRepository;
 import com.campus.campus_backend.repository.UserRepository;
 import com.campus.campus_backend.repository.CategoryRepository;
 import com.campus.campus_backend.repository.SubscriptionSourceRepository;
@@ -65,16 +68,24 @@ public class DataInitializer {
     }
 
     @Bean
-    public CommandLineRunner initSubscriptionSources(SubscriptionSourceRepository subscriptionSourceRepository) {
+    public CommandLineRunner initSubscriptionSources(SubscriptionSourceRepository subscriptionSourceRepository,
+            AggregatedNoticeRepository aggregatedNoticeRepository,
+            NoticeSubscriptionRepository noticeSubscriptionRepository,
+            SourceFetchLogRepository sourceFetchLogRepository) {
         return args -> {
-            seedSource(subscriptionSourceRepository, "同济大学", "WECHAT", "tongji-university-wechat",
-                    "https://mp.weixin.qq.com", "同济大学 公众号", "MOCK_WECHAT");
-            seedSource(subscriptionSourceRepository, "同济体育", "WECHAT", "tongji-sports-wechat",
-                    "https://mp.weixin.qq.com", "同济体育 公众号 体育", "MOCK_WECHAT");
-            seedSource(subscriptionSourceRepository, "同济教务公告", "ACADEMIC", "tongji-academic-announcement",
-                    "https://1.tongji.edu.cn/myAnnouncement", "教务 公告", "MOCK_ACADEMIC");
-            seedSource(subscriptionSourceRepository, "Canvas 日历", "CANVAS", "tongji-canvas-calendar",
-                    "https://canvas.tongji.edu.cn/calendar", "canvas 日历 作业", "MOCK_CANVAS");
+            // 清理所有 mock 源/日志/通知，避免模拟通知影响判断
+            // 1) 先删订阅/日志/通知（避免外键约束）
+            noticeSubscriptionRepository.deleteByMockSources();
+            sourceFetchLogRepository.deleteByMockSources();
+            aggregatedNoticeRepository.deleteByMockSources();
+            // 2) 再按 rawPayload 标记兜底清理（历史遗留/源已被改名等）
+            aggregatedNoticeRepository.deleteByRawPayloadLike("\"mock\":true");
+            // 3) 最后删除所有 MOCK* 抓取策略的源
+            subscriptionSourceRepository.findAll().stream()
+                    .filter(source -> source.getFetchStrategy() != null
+                            && source.getFetchStrategy().toUpperCase().startsWith("MOCK"))
+                    .forEach(subscriptionSourceRepository::delete);
+
             seedSource(subscriptionSourceRepository, "人工补录", "MANUAL", "manual-notice",
                     null, "人工 补录", "MANUAL");
         };

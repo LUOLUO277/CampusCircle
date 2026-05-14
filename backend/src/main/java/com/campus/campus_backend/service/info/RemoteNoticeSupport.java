@@ -16,6 +16,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -36,6 +38,7 @@ import java.util.regex.Pattern;
 @Component
 public class RemoteNoticeSupport {
     private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]+>");
+    private static final Pattern BROKEN_TAG_PATTERN = Pattern.compile("<[^\\n>]{1,200}");
     private static final Pattern SCRIPT_PATTERN = Pattern.compile("<script[\\s\\S]*?</script>", Pattern.CASE_INSENSITIVE);
     private static final Pattern STYLE_PATTERN = Pattern.compile("<style[\\s\\S]*?</style>", Pattern.CASE_INSENSITIVE);
     private static final Pattern SPACE_PATTERN = Pattern.compile("\\s+");
@@ -72,14 +75,35 @@ public class RemoteNoticeSupport {
                     .GET()
                     .timeout(Duration.ofSeconds(intValue(config.get("timeoutSeconds"), 15)));
             headers(config).forEach(builder::header);
-            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<byte[]> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() >= 400) {
                 throw new IllegalStateException("Remote request failed: " + response.statusCode() + " " + url);
             }
-            return response.body();
+            Charset charset = detectCharset(response);
+            return new String(response.body(), charset);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to fetch remote content: " + url, e);
         }
+    }
+
+    private Charset detectCharset(HttpResponse<?> response) {
+        try {
+            String contentType = response.headers().firstValue("Content-Type").orElse("");
+            int index = contentType.toLowerCase(Locale.ROOT).indexOf("charset=");
+            if (index >= 0) {
+                String value = contentType.substring(index + "charset=".length()).trim();
+                int semicolon = value.indexOf(';');
+                if (semicolon > 0) {
+                    value = value.substring(0, semicolon).trim();
+                }
+                value = value.replace("\"", "");
+                if (!value.isBlank()) {
+                    return Charset.forName(value);
+                }
+            }
+        } catch (Exception ignore) {
+        }
+        return StandardCharsets.UTF_8;
     }
 
     public List<RawNoticeItem> parseRss(String xml, SubscriptionSource source, Map<String, Object> config) {
@@ -168,6 +192,8 @@ public class RemoteNoticeSupport {
         String cleaned = SCRIPT_PATTERN.matcher(text).replaceAll(" ");
         cleaned = STYLE_PATTERN.matcher(cleaned).replaceAll(" ");
         cleaned = TAG_PATTERN.matcher(cleaned).replaceAll(" ");
+        // Canvas 等页面中可能因为截取上下文导致出现不完整的 "<div ..." 片段，这里做兜底清理。
+        cleaned = BROKEN_TAG_PATTERN.matcher(cleaned).replaceAll(" ");
         cleaned = cleaned.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">");
         cleaned = SPACE_PATTERN.matcher(cleaned).replaceAll(" ").trim();
         return cleaned.isBlank() ? null : cleaned;

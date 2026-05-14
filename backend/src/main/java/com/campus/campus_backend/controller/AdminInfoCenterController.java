@@ -84,6 +84,12 @@ public class AdminInfoCenterController {
         return Result.ok(infoCenterService.fetchSource(id));
     }
 
+    @PostMapping("/info-center/purge-mock")
+    public Result<Object> purgeMock(@AuthenticationPrincipal UserDetails principal) {
+        ensureAdmin(principal);
+        return Result.ok(infoCenterService.purgeMockData());
+    }
+
     @GetMapping("/info-sources/{id}/fetch-logs")
     public Result<Object> fetchLogs(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
         ensureAdmin(principal);

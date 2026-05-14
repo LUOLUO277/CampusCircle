@@ -43,6 +43,132 @@ public class CanvasSessionFetcher {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 用已有 session cookie 调 Canvas JSON API 抓通知
+     */
+    public FetchResult fetchViaApi(SubscriptionSource source, UserCanvasBinding binding, LoginResult loginResult) {
+        String baseUrl = trimTrailingSlash(binding.getBaseUrl());
+        List<RawNoticeItem> all = new ArrayList<>();
+        List<String> diagnostics = new ArrayList<>(loginResult.diagnostics);
+
+        // 1. 抓 activity_stream（Dashboard 所有通知）
+        all.addAll(fetchActivityStream(source, baseUrl, loginResult.cookieJar, diagnostics));
+
+        // 2. 如果 activity_stream 没内容，逐课程抓 announcements API
+        if (all.isEmpty()) {
+            List<Long> courseIds = discoverCourseIdsViaApi(baseUrl, loginResult.cookieJar, diagnostics);
+            diagnostics.add("api-discovered-course-ids=" + courseIds);
+            for (Long courseId : courseIds) {
+                all.addAll(fetchCourseAnnouncements(source, baseUrl, courseId, loginResult.cookieJar, diagnostics));
+            }
+        }
+
+        String classification = all.isEmpty() ? "API_FETCH_EMPTY" : "FETCH_SUCCESS";
+        diagnostics.add("fetch-classification=" + classification + " total=" + all.size());
+        return new FetchResult(all, diagnostics, classification);
+    }
+
+    private List<RawNoticeItem> fetchActivityStream(SubscriptionSource source, String baseUrl,
+            CookieJar cookies, List<String> diagnostics) {
+        try {
+            // Canvas API: GET /api/v1/users/self/activity_stream
+            String url = baseUrl + "/api/v1/users/self/activity_stream?per_page=50";
+            HttpResult result = get(url, Map.of(
+                    "Accept", "application/json",
+                    "X-Requested-With", "XMLHttpRequest"
+            ), cookies);
+            diagnostics.add("activity-stream status=" + result.statusCode + " bodyLen=" + bodyLength(result.body));
+            if (result.statusCode >= 400 || result.body == null || result.body.isBlank()) {
+                return List.of();
+            }
+            List<Map<String, Object>> items = remoteNoticeSupport.parseJsonArray(result.body);
+            List<RawNoticeItem> notices = new ArrayList<>();
+            for (Map<String, Object> item : items) {
+                String type = remoteNoticeSupport.stringValue(item.get("type"));
+                // 只取公告和讨论
+                if (!items.isEmpty()) {
+                    log.info("CANVAS_STREAM_SAMPLE {}", items.get(0));
+                 }
+                if (!"Announcement".equals(type) && !"DiscussionTopic".equals(type)) {
+                    continue;
+                }
+                String id = remoteNoticeSupport.stringValue(item.get("id"));
+                String title = remoteNoticeSupport.stringValue(item.get("title"));
+                String message = remoteNoticeSupport.cleanText(remoteNoticeSupport.stringValue(item.get("message")));
+                String htmlUrl = remoteNoticeSupport.stringValue(item.get("html_url"));
+                String createdAt = remoteNoticeSupport.stringValue(item.get("created_at"));
+                String fullUrl = (htmlUrl != null && htmlUrl.startsWith("/")) ? baseUrl + htmlUrl : htmlUrl;
+
+                notices.add(RawNoticeItem.builder()
+                        .externalId(remoteNoticeSupport.firstNonBlank(id, fullUrl, title))
+                        .title(title)
+                        .content(message != null ? message : title)
+                        .originalUrl(fullUrl)
+                        .category("课程")
+                        .publishTime(remoteNoticeSupport.parseDate(createdAt))
+                        .rawPayload(Map.of("canvas_api", true, "type", type))
+                        .tags(List.of("Canvas", "课程"))
+                        .build());
+            }
+            diagnostics.add("activity-stream parsed=" + notices.size());
+            return notices;
+        } catch (Exception e) {
+            diagnostics.add("activity-stream error=" + e.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<Long> discoverCourseIdsViaApi(String baseUrl, CookieJar cookies, List<String> diagnostics) {
+        try {
+            String url = baseUrl + "/api/v1/courses?enrollment_state=active&per_page=50";
+            HttpResult result = get(url, Map.of("Accept", "application/json"), cookies);
+            List<Map<String, Object>> courses = remoteNoticeSupport.parseJsonArray(result.body);
+            return courses.stream()
+                    .map(c -> remoteNoticeSupport.stringValue(c.get("id")))
+                    .filter(id -> id != null && !id.isBlank())
+                    .map(id -> { try { return Long.parseLong(id); } catch (Exception e) { return null; } })
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        } catch (Exception e) {
+            diagnostics.add("courses-api error=" + e.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<RawNoticeItem> fetchCourseAnnouncements(SubscriptionSource source, String baseUrl,
+            Long courseId, CookieJar cookies, List<String> diagnostics) {
+        try {
+            String url = baseUrl + "/api/v1/announcements?context_codes[]=course_" + courseId + "&per_page=20";
+            HttpResult result = get(url, Map.of("Accept", "application/json"), cookies);
+            if (result.statusCode >= 400) return List.of();
+            List<Map<String, Object>> items = remoteNoticeSupport.parseJsonArray(result.body);
+            List<RawNoticeItem> notices = new ArrayList<>();
+            for (Map<String, Object> item : items) {
+                String id = remoteNoticeSupport.stringValue(item.get("id"));
+                String title = remoteNoticeSupport.stringValue(item.get("title"));
+                String message = remoteNoticeSupport.cleanText(remoteNoticeSupport.stringValue(item.get("message")));
+                String htmlUrl = remoteNoticeSupport.stringValue(item.get("html_url"));
+                String postedAt = remoteNoticeSupport.stringValue(item.get("posted_at"));
+                String fullUrl = (htmlUrl != null && htmlUrl.startsWith("/")) ? baseUrl + htmlUrl : htmlUrl;
+                notices.add(RawNoticeItem.builder()
+                        .externalId("course-" + courseId + "-ann-" + id)
+                        .title(title)
+                        .content(message != null ? message : title)
+                        .originalUrl(fullUrl)
+                        .category("课程")
+                        .publishTime(remoteNoticeSupport.parseDate(postedAt))
+                        .rawPayload(Map.of("canvas_api", true, "courseId", courseId))
+                        .tags(List.of("Canvas", "课程"))
+                        .build());
+            }
+            diagnostics.add("course-" + courseId + "-announcements parsed=" + notices.size());
+            return notices;
+        } catch (Exception e) {
+            diagnostics.add("course-" + courseId + "-announcements error=" + e.getMessage());
+            return List.of();
+        }
+    }
+
     public CanvasSessionFetcher(RemoteNoticeSupport remoteNoticeSupport, ObjectMapper objectMapper) {
         this.remoteNoticeSupport = remoteNoticeSupport;
         this.objectMapper = objectMapper;

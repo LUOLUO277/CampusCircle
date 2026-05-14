@@ -4,8 +4,10 @@ import com.campus.campus_backend.domain.AggregatedNotice;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
@@ -17,6 +19,13 @@ public interface AggregatedNoticeRepository extends JpaRepository<AggregatedNoti
     Page<AggregatedNotice> findByStatusOrderByPublishTimeDescCreatedAtDesc(String status, Pageable pageable);
     Page<AggregatedNotice> findBySourceIdInAndStatusOrderByPublishTimeDescCreatedAtDesc(Collection<Long> sourceIds, String status, Pageable pageable);
     List<AggregatedNotice> findTop20ByStatusOrderByPublishTimeDescCreatedAtDesc(String status);
+
+    @Query("""
+            select n from AggregatedNotice n
+            where n.status = :status and n.ownerUser is null
+            order by n.publishTime desc, n.createdAt desc
+            """)
+    Page<AggregatedNotice> findPublicNotices(@Param("status") String status, Pageable pageable);
 
     @Query("""
             select n from AggregatedNotice n
@@ -35,4 +44,23 @@ public interface AggregatedNoticeRepository extends JpaRepository<AggregatedNoti
             @Param("sourceIds") Collection<Long> sourceIds,
             @Param("userId") Long userId,
             Pageable pageable);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            delete from AggregatedNotice n
+            where n.source.id in (
+                select s.id from SubscriptionSource s
+                where s.fetchStrategy is not null and upper(s.fetchStrategy) like 'MOCK%'
+            )
+            """)
+    int deleteByMockSources();
+
+    @Modifying
+    @Transactional
+    @Query("""
+            delete from AggregatedNotice n
+            where n.rawPayloadJson is not null and n.rawPayloadJson like %:needle%
+            """)
+    int deleteByRawPayloadLike(@Param("needle") String needle);
 }

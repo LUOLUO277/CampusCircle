@@ -136,9 +136,11 @@ public class InfoCenterService {
                         .map(item -> item.getSource().getId()).toList();
         List<AggregatedNotice> all;
         if (user == null) {
-            all = (Boolean.TRUE.equals(onlySubscribed) && !subscribedIds.isEmpty())
-                    ? aggregatedNoticeRepository.findBySourceIdInAndStatusOrderByPublishTimeDescCreatedAtDesc(subscribedIds, "ONLINE", pageable).getContent()
-                    : aggregatedNoticeRepository.findByStatusOrderByPublishTimeDescCreatedAtDesc("ONLINE", pageable).getContent();
+            if (Boolean.TRUE.equals(onlySubscribed)) {
+                all = List.of();
+            } else {
+                all = aggregatedNoticeRepository.findPublicNotices("ONLINE", pageable).getContent();
+            }
         } else if (Boolean.TRUE.equals(onlySubscribed) && !subscribedIds.isEmpty()) {
             all = aggregatedNoticeRepository.findSubscribedAndOwnedVisibleNotices("ONLINE", subscribedIds, user.getId(), pageable).getContent();
         } else {
@@ -309,6 +311,34 @@ public class InfoCenterService {
         return subscriptionSourceRepository.findByStatusOrderByUpdatedAtDesc("ACTIVE").stream()
                 .filter(source -> !CanvasBindingService.PERSONAL_CANVAS_SOURCE_KEY.equals(source.getSourceKey()))
                 .toList();
+    }
+
+    @Transactional
+    public Map<String, Object> purgeMockData() {
+        int deletedLogs = 0;
+        int deletedNoticesBySource = 0;
+        int deletedNoticesByPayload = 0;
+        int deletedSubscriptions = 0;
+        int deletedSources = 0;
+
+        deletedSubscriptions = noticeSubscriptionRepository.deleteByMockSources();
+        deletedLogs = sourceFetchLogRepository.deleteByMockSources();
+        deletedNoticesBySource = aggregatedNoticeRepository.deleteByMockSources();
+        deletedNoticesByPayload = aggregatedNoticeRepository.deleteByRawPayloadLike("\"mock\":true");
+
+        List<SubscriptionSource> mockSources = subscriptionSourceRepository.findAll().stream()
+                .filter(source -> source.getFetchStrategy() != null
+                        && source.getFetchStrategy().toUpperCase().startsWith("MOCK"))
+                .toList();
+        subscriptionSourceRepository.deleteAll(mockSources);
+        deletedSources = mockSources.size();
+
+        return Map.of(
+                "deletedSubscriptions", deletedSubscriptions,
+                "deletedLogs", deletedLogs,
+                "deletedNoticesBySource", deletedNoticesBySource,
+                "deletedNoticesByPayload", deletedNoticesByPayload,
+                "deletedSources", deletedSources);
     }
 
     private SubscriptionSource requireSource(Long sourceId) {

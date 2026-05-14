@@ -105,7 +105,7 @@ public class CanvasBindingService {
             CanvasSessionFetcher.LoginResult loginResult = canvasSessionFetcher.login(binding);
             binding.setSessionCookiesJson(writeCookies(loginResult.getCookies()));
             binding.setSessionRefreshedAt(LocalDateTime.now());
-            CanvasSessionFetcher.FetchResult fetchResult = canvasSessionFetcher.fetch(source, binding, loginResult);
+            CanvasSessionFetcher.FetchResult fetchResult = canvasSessionFetcher.fetchViaApi(source, binding, loginResult);
             Map<String, Object> result = noticeIngestionService.ingest(source, user, fetchResult.getItems());
             binding.setLastSyncedAt(LocalDateTime.now());
             binding.setLastSyncStatus(fetchResult.getItems().isEmpty() ? "EMPTY" : "SUCCESS");
