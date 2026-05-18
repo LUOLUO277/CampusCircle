@@ -108,7 +108,7 @@
     {
       "path": "pages/user/home",
       "style": {
-        "navigationBarTitleText": "他人主页"
+        "navigationBarTitleText": "用户主页"
       }
     },
     {
@@ -133,7 +133,8 @@
     {
       "path": "pages/info-center/index",
       "style": {
-        "navigationBarTitleText": "信息订阅中心"
+        "navigationBarTitleText": "信息订阅中心",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -164,7 +165,7 @@
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "码住校园",
+    "navigationBarTitleText": "校园信息订阅中心",
     "navigationBarBackgroundColor": "#F8F8F8",
     "backgroundColor": "#F8F8F8"
   },
@@ -179,12 +180,8 @@
         "text": "首页"
       },
       {
-        "pagePath": "pages/errand/index",
-        "text": "跑腿"
-      },
-      {
-        "pagePath": "pages/message/index",
-        "text": "消息"
+        "pagePath": "pages/info-center/index",
+        "text": "订阅"
       },
       {
         "pagePath": "pages/profile/index",

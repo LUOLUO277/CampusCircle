@@ -1,19 +1,17 @@
 <template>
   <view class="page-container">
-    <view class="profile-header">
-      <!-- 签到按钮 -->
-      <view class="checkin-btn-wrapper" v-if="userStore.isLoggedIn">
+    <view class="profile-hero">
+      <view v-if="userStore.isLoggedIn" class="checkin-btn-wrapper">
         <button
           class="checkin-btn"
-          :class="{ 'checked': isCheckedIn }"
-          @click="handleCheckIn"
+          :class="{ checked: isCheckedIn }"
           :disabled="isCheckedIn"
+          @click="handleCheckIn"
         >
-          {{ isCheckedIn ? '已签到' : '签到 +10' }}
+          {{ isCheckedIn ? '今日已签到' : '签到 +10' }}
         </button>
       </view>
 
-      <!-- 用户卡片 -->
       <view class="user-card" @click="handleUserCardClick">
         <image
           v-if="userStore.isLoggedIn && userStore.avatar"
@@ -21,23 +19,22 @@
           class="avatar-img"
           mode="aspectFill"
         />
-        <view v-else class="avatar-placeholder">👤</view>
+        <view v-else class="avatar-placeholder">◌</view>
 
         <view class="info">
           <template v-if="userStore.isLoggedIn">
             <text class="username">{{ userStore.nickname }}</text>
             <text class="school">{{ userStore.userInfo.school || '未认证学校' }}</text>
-            <text class="bio">{{ userStore.userInfo.bio || '这个人很懒...' }}</text>
+            <text class="bio">{{ userStore.userInfo.bio || '还没有留下个人简介。' }}</text>
           </template>
           <template v-else>
             <text class="username">未登录用户</text>
-            <text class="desc">点击此处登录/注册</text>
+            <text class="desc">点击这里登录或注册，开始管理你的校园主页。</text>
           </template>
         </view>
       </view>
 
-      <!-- 积分数据 -->
-      <view class="stats" v-if="userStore.isLoggedIn">
+      <view v-if="userStore.isLoggedIn" class="stats">
         <view class="stat-item">
           <text class="num">{{ userStore.userInfo.points || 0 }}</text>
           <text class="label">我的积分</text>
@@ -53,70 +50,65 @@
       </view>
     </view>
 
-    <!-- 功能菜单 -->
-    <view class="menu-list">
-      <view class="menu-item" @click="handleMyPosts">
-        <text>📝 我的发布</text>
-        <text class="arrow">></text>
-      </view>
+    <view class="menu-panel">
+      <view class="menu-list">
+        <view class="menu-item" @click="handleMyPosts">
+          <text class="menu-text">我的发布</text>
+          <text class="arrow">›</text>
+        </view>
 
-      <view class="menu-item" @click="handleMyErrands">
-        <text>🏃‍♂️ 我的跑腿</text>
-        <text class="arrow">></text>
-      </view>
+        <view class="menu-item" @click="handleMyCollections">
+          <text class="menu-text">我的收藏</text>
+          <text class="arrow">›</text>
+        </view>
 
-      <!-- 跳转到我的收藏 -->
-      <view class="menu-item" @click="handleMyCollections">
-        <text>⭐ 我的收藏</text>
-        <text class="arrow">></text>
-      </view>
+        <view class="menu-item" @click="handleSettings">
+          <text class="menu-text">个人资料设置</text>
+          <text class="arrow">›</text>
+        </view>
 
-      <view class="menu-item" @click="handleSettings">
-        <text>⚙️ 个人资料设置</text>
-        <text class="arrow">></text>
-      </view>
+        <view
+          v-if="userStore.isLoggedIn"
+          class="menu-item"
+          @click="handleCanvasBinding"
+        >
+          <text class="menu-text">Canvas 账号绑定</text>
+          <text class="arrow">›</text>
+        </view>
 
-      <!-- 管理员入口 -->
-      <view
-        v-if="userStore.isLoggedIn"
-        class="menu-item"
-        @click="handleCanvasBinding"
-      >
-        <text>Canvas 账号登录</text>
-        <text class="arrow">></text>
-      </view>
+        <view
+          v-if="userStore.isAdmin"
+          class="menu-item admin-entry"
+          @click="handleAdmin"
+        >
+          <text class="menu-text">内容审核后台</text>
+          <text class="arrow">›</text>
+        </view>
 
-      <view
-        v-if="userStore.isAdmin"
-        class="menu-item admin-entry"
-        @click="handleAdmin"
-      >
-        <text>🛡️ 内容审核后台</text>
-        <text class="arrow">></text>
-      </view>
+        <view
+          v-if="userStore.isAdmin"
+          class="menu-item admin-entry secondary"
+          @click="handleInfoAdmin"
+        >
+          <text class="menu-text">信息订阅后台</text>
+          <text class="arrow">›</text>
+        </view>
 
-      <view
-        v-if="userStore.isAdmin"
-        class="menu-item admin-entry secondary"
-        @click="handleInfoAdmin"
-      >
-        <text>📮 信息订阅后台</text>
-        <text class="arrow">></text>
-      </view>
-
-      <view
-        v-if="userStore.isLoggedIn"
-        class="menu-item logout"
-        @click="handleLogout"
-      >
-        <text>退出登录</text>
+        <view
+          v-if="userStore.isLoggedIn"
+          class="menu-item logout"
+          @click="handleLogout"
+        >
+          <text class="menu-text logout-text">退出登录</text>
+        </view>
       </view>
     </view>
 
-    <!-- 最近发布列表 -->
     <view v-if="userStore.isLoggedIn && myPosts.length > 0" class="recent-posts">
-      <view class="section-title">最近发布</view>
-      <!-- 跳转到帖子详情 -->
+      <view class="section-head">
+        <text class="section-title">最近发布</text>
+        <text class="section-meta">{{ myPosts.length }} 条</text>
+      </view>
       <view
         v-for="post in myPosts"
         :key="post.id"
@@ -126,7 +118,7 @@
         <text class="post-content">{{ post.content }}</text>
         <view class="post-meta">
           <text class="post-date">浏览 {{ post.stats?.views || 0 }}</text>
-          <text class="post-date" style="margin-left: 20rpx">❤️ {{ post.stats?.likes || 0 }}</text>
+          <text class="post-date likes">点赞 {{ post.stats?.likes || 0 }}</text>
         </view>
       </view>
     </view>
@@ -142,48 +134,51 @@ import TabBar from '@/components/TabBar.vue'
 import { useUserStore } from '@/stores/user'
 import { userApi } from '@/api/user'
 
-// 状态管理
 const userStore = useUserStore()
 const myPosts = ref([])
 const isCheckedIn = ref(false)
 
-// 页面显示时执行
 onShow(() => {
   uni.hideTabBar()
   if (userStore.isLoggedIn) {
     refreshData()
+    return
   }
+
+  myPosts.value = []
+  isCheckedIn.value = false
 })
 
-/**
- * 刷新用户数据（个人信息、签到状态、发布内容）
- */
 const refreshData = async () => {
   try {
     const [userRes, checkInRes, postRes] = await Promise.all([
       userApi.getUserInfo(),
       userApi.getCheckInStatus(),
-      userApi.getMyPosts({ page: 1, size: 5 }) // 限制只取前5条显示在主页
+      userApi.getMyPosts({ page: 1, size: 5 })
     ])
 
     if (userRes.code === 200) userStore.updateUserInfo(userRes.data)
     if (checkInRes.code === 200) isCheckedIn.value = checkInRes.data.checkedIn
-    if (postRes.code === 200) myPosts.value = postRes.data.list
-  } catch (e) {
-    console.error('刷新数据失败', e)
+    if (postRes.code === 200) {
+      myPosts.value = Array.isArray(postRes.data?.list) ? postRes.data.list : []
+    }
+  } catch (error) {
+    console.error('刷新个人中心数据失败', error)
   }
 }
 
-/**
- * 处理签到逻辑
- */
+const ensureLogin = () => {
+  if (userStore.isLoggedIn) return true
+  uni.navigateTo({ url: '/pages/login/index' })
+  return false
+}
+
 const handleCheckIn = async () => {
   if (isCheckedIn.value) return
 
   try {
     uni.showLoading({ title: '签到中...' })
     const res = await userApi.checkIn()
-    
     if (res.code === 200) {
       uni.showToast({ title: '签到成功', icon: 'success' })
       isCheckedIn.value = true
@@ -196,81 +191,48 @@ const handleCheckIn = async () => {
   }
 }
 
-/**
- * 跳转到帖子详情页
- * @param {string|number} postId 帖子ID
- */
 const handlePostClick = (postId) => {
   uni.navigateTo({ url: `/pages/post/detail?id=${postId}` })
 }
 
-/**
- * 处理用户卡片点击（登录/编辑资料）
- */
 const handleUserCardClick = () => {
   if (!userStore.isLoggedIn) {
     uni.navigateTo({ url: '/pages/login/index' })
-  } else {
-    uni.navigateTo({ url: '/pages/profile/edit' })
+    return
   }
-}
-
-/**
- * 跳转到个人资料设置页
- */
-const handleSettings = () => {
-  if (!userStore.isLoggedIn) return
   uni.navigateTo({ url: '/pages/profile/edit' })
 }
 
-/**
- * 跳转到我的跑腿页面
- */
+const handleSettings = () => {
+  if (!ensureLogin()) return
+  uni.navigateTo({ url: '/pages/profile/edit' })
+}
+
 const handleCanvasBinding = () => {
-  if (!userStore.isLoggedIn) return uni.navigateTo({ url: '/pages/login/index' })
+  if (!ensureLogin()) return
   uni.navigateTo({ url: '/pages/profile/canvas-binding' })
 }
 
-const handleMyErrands = () => {
-  if (!userStore.isLoggedIn) return uni.navigateTo({ url: '/pages/login/index' })
-  uni.navigateTo({ url: '/pages/profile/my-errands' })
-}
-
-/**
- * 跳转到我的发布页面
- */
 const handleMyPosts = () => {
-  if (!userStore.isLoggedIn) return uni.navigateTo({ url: '/pages/login/index' })
-  uni.navigateTo({ url: '/pages/profile/my-post' }) // 注意文件名一致性
+  if (!ensureLogin()) return
+  uni.navigateTo({ url: '/pages/profile/my-post' })
 }
 
-/**
- * 跳转到我的收藏页面
- */
 const handleMyCollections = () => {
-  if (!userStore.isLoggedIn) return uni.navigateTo({ url: '/pages/login/index' })
+  if (!ensureLogin()) return
   uni.navigateTo({ url: '/pages/profile/my-collection' })
 }
 
-/**
- * 跳转到粉丝列表页
- */
 const handleFollowers = () => {
   if (!userStore.isLoggedIn) return
   uni.navigateTo({ url: '/pages/profile/follow-list?type=followers' })
 }
 
-/**
- * 跳转到关注列表页
- */
 const goToFollowList = () => {
   if (!userStore.isLoggedIn) return
   uni.navigateTo({ url: '/pages/profile/follow-list?type=following' })
 }
 
-/**
- * 跳转到管理员审核后台
- */
 const handleAdmin = () => {
   uni.navigateTo({ url: '/pages/admin/report-list' })
 }
@@ -279,20 +241,16 @@ const handleInfoAdmin = () => {
   uni.navigateTo({ url: '/pages/admin/info-center' })
 }
 
-/**
- * 处理退出登录逻辑
- */
 const handleLogout = () => {
   uni.showModal({
     title: '提示',
     content: '确定要退出登录吗？',
     success: (res) => {
-      if (res.confirm) {
-        userStore.logout()
-        myPosts.value = []
-        isCheckedIn.value = false
-        uni.showToast({ title: '已退出', icon: 'none' })
-      }
+      if (!res.confirm) return
+      userStore.logout()
+      myPosts.value = []
+      isCheckedIn.value = false
+      uni.showToast({ title: '已退出登录', icon: 'none' })
     }
   })
 }
@@ -301,39 +259,45 @@ const handleLogout = () => {
 <style scoped>
 .page-container {
   min-height: 100vh;
-  background: #F5F5F5;
-  padding-bottom: 160rpx;
+  background:
+    radial-gradient(circle at top left, rgba(186, 162, 213, 0.22), transparent 28%),
+    linear-gradient(180deg, #faf7f2 0%, #f5f1eb 100%);
+  padding: 28rpx 24rpx 160rpx;
 }
 
-.profile-header {
-  background: #fff;
-  padding: 100rpx 40rpx 40rpx;
-  margin-bottom: 20rpx;
-  position: relative; /* 为签到按钮定位 */
+.profile-hero {
+  position: relative;
+  padding: 112rpx 34rpx 34rpx;
+  border-radius: 34rpx;
+  background: var(--theme-gradient);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow);
+  overflow: hidden;
 }
 
 .user-card {
   display: flex;
   align-items: center;
-  margin-bottom: 50rpx;
+  margin-bottom: 42rpx;
 }
 
 .avatar-img {
   width: 140rpx;
   height: 140rpx;
   border-radius: 50%;
-  margin-right: 30rpx;
-  border: 4rpx solid #fff;
-  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.1);
+  margin-right: 28rpx;
+  border: 6rpx solid rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10rpx 24rpx rgba(121, 110, 176, 0.18);
 }
 
 .avatar-placeholder {
   width: 140rpx;
   height: 140rpx;
-  background: #eee;
+  background: var(--theme-gradient-strong);
   border-radius: 50%;
-  margin-right: 30rpx;
-  font-size: 60rpx;
+  margin-right: 28rpx;
+  font-size: 56rpx;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -347,37 +311,33 @@ const handleLogout = () => {
 
 .username {
   font-size: 40rpx;
-  font-weight: bold;
-  margin-bottom: 10rpx;
-  color: #333;
+  font-weight: 800;
+  margin-bottom: 12rpx;
+  color: var(--theme-ink);
 }
 
 .school {
   font-size: 24rpx;
-  color: #52C41A;
-  background: #F6FFED;
-  padding: 2rpx 10rpx;
-  border-radius: 8rpx;
+  color: var(--theme-primary-deep);
+  background: rgba(255, 255, 255, 0.82);
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
   align-self: flex-start;
-  margin-bottom: 8rpx;
-  border: 1rpx solid #B7EB8F;
+  margin-bottom: 10rpx;
 }
 
-.bio {
-  font-size: 26rpx;
-  color: #999;
-}
-
+.bio,
 .desc {
-  color: #999;
-  font-size: 28rpx;
+  font-size: 26rpx;
+  color: #6c6581;
+  line-height: 1.6;
 }
 
 .stats {
   display: flex;
   justify-content: space-around;
-  padding-top: 20rpx;
-  border-top: 1rpx solid #f5f5f5;
+  padding: 24rpx 0 4rpx;
+  border-top: 1rpx solid rgba(140, 128, 216, 0.12);
 }
 
 .stat-item {
@@ -387,66 +347,103 @@ const handleLogout = () => {
 }
 
 .num {
-  font-weight: bold;
-  font-size: 36rpx;
-  margin-bottom: 6rpx;
-  color: #333;
+  font-weight: 800;
+  font-size: 38rpx;
+  margin-bottom: 8rpx;
+  color: var(--theme-ink);
 }
 
 .label {
   font-size: 24rpx;
-  color: #999;
+  color: var(--theme-muted);
+}
+
+.menu-panel {
+  margin-top: 22rpx;
 }
 
 .menu-list {
-  background: #fff;
-  margin-bottom: 20rpx;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
+  border-radius: 30rpx;
+  overflow: hidden;
+  box-shadow: var(--theme-shadow-soft);
 }
 
 .menu-item {
-  padding: 34rpx 40rpx;
-  border-bottom: 1rpx solid #f5f5f5;
+  padding: 34rpx 34rpx;
+  border-bottom: 1rpx solid rgba(140, 128, 216, 0.08);
   font-size: 30rpx;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: rgba(255, 255, 255, 0.5);
 }
 
-.menu-item:active {
-  background-color: #fafafa;
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-text {
+  color: var(--theme-ink);
+  font-size: 28rpx;
 }
 
 .arrow {
-  color: #ccc;
-  font-family: monospace;
+  color: var(--theme-muted);
+  font-size: 36rpx;
+  line-height: 1;
 }
 
 .logout {
-  color: #ff4d4f;
   justify-content: center;
-  font-weight: bold;
-  margin-top: 20rpx;
+  background: rgba(206, 111, 139, 0.08);
+}
+
+.logout-text {
+  color: #b65473;
+  font-weight: 700;
 }
 
 .recent-posts {
-  background: #fff;
-  padding: 30rpx 40rpx;
+  margin-top: 22rpx;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
+  border-radius: 30rpx;
+  padding: 30rpx 34rpx;
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
 }
 
 .section-title {
-  font-weight: bold;
-  margin-bottom: 20rpx;
+  font-weight: 800;
   font-size: 30rpx;
+  color: var(--theme-ink);
+}
+
+.section-meta {
+  font-size: 22rpx;
+  color: var(--theme-muted);
 }
 
 .mini-post {
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #eee;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid rgba(140, 128, 216, 0.08);
+}
+
+.mini-post:last-child {
+  border-bottom: none;
 }
 
 .post-content {
   font-size: 28rpx;
-  color: #333;
+  color: var(--theme-ink);
   margin-bottom: 10rpx;
   display: block;
   overflow: hidden;
@@ -461,53 +458,51 @@ const handleLogout = () => {
 
 .post-date {
   font-size: 22rpx;
-  color: #999;
+  color: var(--theme-muted);
 }
 
-/* 签到按钮样式 */
+.likes {
+  margin-left: 20rpx;
+}
+
 .checkin-btn-wrapper {
   position: absolute;
-  top: 40rpx;
-  right: 40rpx;
+  top: 28rpx;
+  right: 28rpx;
 }
 
 .checkin-btn {
-  background: linear-gradient(135deg, #FF7E5F 0%, #FEB47B 100%);
+  background: var(--theme-ink);
   color: #fff;
   font-size: 24rpx;
   padding: 0 30rpx;
   height: 60rpx;
   line-height: 60rpx;
-  border-radius: 30rpx;
-  box-shadow: 0 4rpx 12rpx rgba(254, 180, 123, 0.4);
+  border-radius: 999rpx;
+  box-shadow: 0 8rpx 18rpx rgba(52, 48, 48, 0.16);
   border: none;
 }
 
 .checkin-btn.checked {
-  background: #f0f0f0;
-  color: #999;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--theme-muted);
   box-shadow: none;
 }
 
-.checkin-btn::after {
-  border: none;
-}
-
-/* 管理员入口样式 */
 .admin-entry {
-  background-color: #fff1f0; /* 给管理员入口一个特殊的淡红色背景，突出显示 */
+  background-color: rgba(206, 111, 139, 0.07);
 }
 
-.admin-entry text {
-  color: #d4380d;
-  font-weight: bold;
+.admin-entry .menu-text {
+  color: #b65473;
+  font-weight: 700;
 }
 
 .admin-entry.secondary {
-  background-color: #edf7ee;
+  background-color: rgba(140, 128, 216, 0.08);
 }
 
-.admin-entry.secondary text {
-  color: #1f5f46;
+.admin-entry.secondary .menu-text {
+  color: var(--theme-primary-deep);
 }
 </style>

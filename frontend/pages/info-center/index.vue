@@ -1,17 +1,25 @@
 <template>
   <view class="page">
+    <view class="nav-bar">
+      <text class="back-btn" @click="goHome">< 返回</text>
+      <text class="nav-title">信息订阅中心</text>
+      <text class="nav-action" @click="goSubscriptions">订阅管理</text>
+    </view>
+
     <view class="hero">
       <view>
         <text class="title">信息订阅中心</text>
         <text class="subtitle">统一查看公众号、教务与 Canvas 通知</text>
       </view>
-      <view class="hero-actions">
-        <button class="ghost-btn" @click="goSubscriptions">管理订阅</button>
-      </view>
     </view>
 
     <view class="toolbar">
-      <input v-model="filters.keyword" class="search-input" placeholder="搜索标题、摘要、关键词" @confirm="loadNotices" />
+      <input
+        v-model="filters.keyword"
+        class="search-input"
+        placeholder="搜索标题、摘要、关键词"
+        @confirm="loadNotices"
+      />
       <picker class="picker" :range="categories" range-key="label" @change="onCategoryChange">
         <view class="picker-value">{{ currentCategoryLabel }}</view>
       </picker>
@@ -23,12 +31,12 @@
       </picker>
       <view class="toolbar-right">
         <label class="subscribed-switch">
-          <switch :checked="!!filters.onlySubscribed" color="#2f855a" @change="onSubscribedToggle" />
+          <switch :checked="!!filters.onlySubscribed" color="#8c80d8" @change="onSubscribedToggle" />
           <text>只看已订阅</text>
         </label>
         <view class="view-toggle">
-          <button class="toggle-btn" :class="{ active: viewMode === 'cards' }" @click="setViewMode('cards')">卡片视角</button>
-          <button class="toggle-btn" :class="{ active: viewMode === 'calendar' }" @click="setViewMode('calendar')">日历视角</button>
+          <button class="toggle-btn" :class="{ active: viewMode === 'cards' }" @click="setViewMode('cards')">卡片</button>
+          <button class="toggle-btn" :class="{ active: viewMode === 'calendar' }" @click="setViewMode('calendar')">日历</button>
         </view>
       </view>
     </view>
@@ -50,7 +58,7 @@
         </view>
       </view>
 
-      <view v-if="!notices.length" class="empty">暂无通知，先去订阅来源或触发后台抓取。</view>
+      <view v-if="!notices.length" class="empty">暂无通知，先去订阅来源或触发一次同步。</view>
     </view>
 
     <view v-else class="calendar">
@@ -94,7 +102,7 @@
         </view>
       </view>
 
-      <view class="day-panel" v-if="selectedDayEvents.length">
+      <view v-if="selectedDayEvents.length" class="day-panel">
         <view class="day-panel-header">
           <text class="day-panel-title">{{ selectedDateLabel }}</text>
           <text class="day-panel-sub">{{ selectedDayEvents.length }} 条</text>
@@ -112,17 +120,23 @@
         </view>
       </view>
 
-      <view v-if="!notices.length" class="empty">暂无通知，先去订阅来源或触发后台抓取。</view>
+      <view v-if="!notices.length" class="empty">暂无通知，先去订阅来源或触发一次同步。</view>
     </view>
+
+    <view class="bottom-space"></view>
+    <TabBar :current-tab="'info'" />
   </view>
 </template>
 
 <script>
+import TabBar from '@/components/TabBar.vue'
 import { getInfoNotices, getInfoSources } from '@/api/info-center'
 
 export default {
+  components: { TabBar },
   data() {
     return {
+      hasBootstrapped: false,
       viewMode: 'cards',
       notices: [],
       sources: [],
@@ -213,11 +227,17 @@ export default {
     selectedDateLabel() {
       if (!this.selectedDateKey) return ''
       const [y, m, d] = this.selectedDateKey.split('-').map(v => parseInt(v, 10))
-      return `${y}年${m}月${d}日`
+      return `${y}年 ${m}月 ${d}日`
     }
   },
   onLoad() {
     this.bootstrap()
+  },
+  onShow() {
+    uni.hideTabBar({ animation: false })
+    if (!this.hasBootstrapped) return
+    this.loadSources()
+    this.loadNotices()
   },
   methods: {
     async bootstrap() {
@@ -226,6 +246,7 @@ export default {
       this.calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1)
       this.selectedDateKey = this.dateKey(now)
       await Promise.all([this.loadSources(), this.loadNotices()])
+      this.hasBootstrapped = true
     },
     setViewMode(mode) {
       this.viewMode = mode
@@ -258,6 +279,9 @@ export default {
     onSubscribedToggle(event) {
       this.filters.onlySubscribed = !!event.detail.value
       this.loadNotices()
+    },
+    goHome() {
+      uni.switchTab({ url: '/pages/index/index' })
     },
     goSubscriptions() {
       uni.navigateTo({ url: '/pages/info-center/subscriptions' })
@@ -304,16 +328,47 @@ export default {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #eef6ef 0%, #f7f7f7 28%, #f7f7f7 100%);
-  padding: 30rpx;
+  background:
+    radial-gradient(circle at top left, rgba(186, 162, 213, 0.18), transparent 26%),
+    linear-gradient(180deg, #faf7f2 0%, #f5f1eb 100%);
+  padding: 24rpx 24rpx 170rpx;
 }
+
+.nav-bar {
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10rpx;
+}
+
+.back-btn,
+.nav-action {
+  width: 160rpx;
+  font-size: 28rpx;
+  color: var(--theme-primary-deep);
+}
+
+.nav-action {
+  text-align: right;
+}
+
+.nav-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
 .hero {
-  background: linear-gradient(135deg, #1f5f46 0%, #2f855a 60%, #b7d7b0 100%);
+  background: var(--theme-gradient);
   border-radius: 32rpx;
   padding: 36rpx;
-  color: #fff;
+  color: var(--theme-ink);
   margin-bottom: 24rpx;
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow);
 }
+
 .title,
 .subtitle,
 .notice-title,
@@ -326,40 +381,27 @@ export default {
 .empty {
   display: block;
 }
+
 .title {
   font-size: 40rpx;
   font-weight: 700;
 }
+
 .subtitle {
   margin-top: 12rpx;
   font-size: 24rpx;
   opacity: 0.9;
 }
-.hero-actions {
-  margin-top: 24rpx;
-}
-.ghost-btn {
-  margin: 0;
-  width: 220rpx;
-  height: 72rpx;
-  line-height: 72rpx;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border: 1rpx solid rgba(255, 255, 255, 0.35);
-  border-radius: 999rpx;
-  font-size: 26rpx;
-}
-.ghost-btn::after {
-  border: none;
-}
+
 .view-toggle {
   display: flex;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
   border-radius: 999rpx;
   padding: 8rpx;
   gap: 8rpx;
-  box-shadow: 0 12rpx 30rpx rgba(15, 23, 42, 0.06);
+  box-shadow: var(--theme-shadow-soft);
 }
+
 .toggle-btn {
   margin: 0;
   height: 64rpx;
@@ -368,67 +410,81 @@ export default {
   font-size: 24rpx;
   border-radius: 999rpx;
   background: transparent;
-  color: #1f2937;
+  color: var(--theme-ink);
   white-space: nowrap;
 }
+
 .toggle-btn::after {
   border: none;
 }
+
 .toggle-btn.active {
-  background: #1f5f46;
+  background: var(--theme-gradient-strong);
   color: #fff;
 }
+
 .toolbar {
   display: flex;
   gap: 20rpx;
   margin-bottom: 20rpx;
   align-items: center;
 }
+
 .toolbar-right {
   display: flex;
   align-items: center;
   gap: 16rpx;
 }
+
 .search-input,
 .picker {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
   border-radius: 24rpx;
   min-height: 88rpx;
   box-sizing: border-box;
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
 }
+
 .search-input {
   flex: 1;
   padding: 0 26rpx;
 }
+
 .picker {
   min-width: 220rpx;
   padding: 24rpx 26rpx;
 }
+
 .source-picker {
   flex: 1;
 }
+
 .picker-value {
-  color: #1f2937;
+  color: var(--theme-ink);
   font-size: 26rpx;
 }
+
 .subscribed-switch {
   display: flex;
   align-items: center;
   gap: 12rpx;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
   border-radius: 999rpx;
   padding: 14rpx 18rpx;
   font-size: 24rpx;
   color: #334155;
-  box-shadow: 0 12rpx 30rpx rgba(15, 23, 42, 0.06);
+  box-shadow: var(--theme-shadow-soft);
 }
+
 .notice-card {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 28rpx;
   padding: 28rpx;
   margin-bottom: 20rpx;
-  box-shadow: 0 12rpx 30rpx rgba(15, 23, 42, 0.05);
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
+  box-shadow: var(--theme-shadow-soft);
 }
+
 .notice-header,
 .meta-row,
 .tag-row {
@@ -437,44 +493,53 @@ export default {
   gap: 12rpx;
   align-items: center;
 }
+
 .notice-header {
   margin-bottom: 16rpx;
 }
+
 .badge {
-  background: #edf7ee;
-  color: #1f5f46;
+  background: rgba(140, 128, 216, 0.1);
+  color: var(--theme-primary-deep);
   border-radius: 999rpx;
   padding: 6rpx 18rpx;
   font-size: 22rpx;
 }
+
 .source,
 .meta-text {
   font-size: 22rpx;
   color: #64748b;
 }
+
 .notice-title {
   font-size: 32rpx;
   line-height: 1.5;
   color: #0f172a;
   font-weight: 600;
 }
+
 .notice-summary {
   margin-top: 14rpx;
   color: #475569;
   font-size: 25rpx;
   line-height: 1.7;
 }
+
 .meta-row {
   margin-top: 18rpx;
   justify-content: space-between;
 }
+
 .deadline {
   color: #b45309;
   font-size: 22rpx;
 }
+
 .tag-row {
   margin-top: 18rpx;
 }
+
 .tag {
   background: #f1f5f9;
   color: #334155;
@@ -482,6 +547,7 @@ export default {
   border-radius: 999rpx;
   font-size: 22rpx;
 }
+
 .empty {
   text-align: center;
   color: #64748b;
@@ -490,10 +556,13 @@ export default {
 }
 
 .calendar {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 32rpx;
   padding: 20rpx;
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
+  box-shadow: var(--theme-shadow-soft);
 }
+
 .cal-header {
   display: flex;
   align-items: center;
@@ -501,33 +570,39 @@ export default {
   gap: 16rpx;
   margin-bottom: 12rpx;
 }
+
 .cal-header-actions {
   display: flex;
   align-items: center;
   gap: 12rpx;
 }
+
 .cal-title {
   font-size: 30rpx;
   font-weight: 700;
   color: #0f172a;
 }
+
 .cal-btn {
   margin: 0;
   height: 64rpx;
   line-height: 64rpx;
   padding: 0 18rpx;
   border-radius: 16rpx;
-  background: #eef6ef;
-  color: #1f5f46;
+  background: rgba(140, 128, 216, 0.1);
+  color: var(--theme-primary-deep);
   font-size: 24rpx;
 }
+
 .cal-btn::after {
   border: none;
 }
+
 .cal-nav {
   display: flex;
   gap: 8rpx;
 }
+
 .cal-icon {
   margin: 0;
   height: 64rpx;
@@ -539,9 +614,11 @@ export default {
   color: #0f172a;
   font-size: 24rpx;
 }
+
 .cal-icon::after {
   border: none;
 }
+
 .cal-weekdays {
   display: flex;
   flex-wrap: nowrap;
@@ -549,6 +626,7 @@ export default {
   border-bottom: none;
   background: #fff;
 }
+
 .cal-weekday {
   width: 14.2857%;
   text-align: center;
@@ -559,54 +637,67 @@ export default {
   border-right: 1rpx solid #d1d5db;
   box-sizing: border-box;
 }
+
 .cal-weekday:last-child {
   border-right: none;
 }
+
 .cal-grid {
   display: flex;
   flex-wrap: wrap;
   border: 1rpx solid #d1d5db;
   border-top: none;
 }
+
 .cal-cell {
   width: 14.2857%;
   border-top: 1rpx solid #d1d5db;
   border-right: 1rpx solid #d1d5db;
   min-height: 176rpx;
-  padding: 12rpx 12rpx 10rpx 12rpx;
+  padding: 12rpx 12rpx 10rpx;
   box-sizing: border-box;
   background: #fff;
 }
+
 .cal-cell:nth-child(7n) {
   border-right: none;
 }
+
 .cal-cell.muted {
   background: #fafafa;
   color: #94a3b8;
 }
+
 .cal-cell.muted .cal-date {
   color: #9ca3af;
 }
+
 .cal-cell.muted .cal-event {
   opacity: 0.6;
 }
+
 .cal-cell.today {
-  background: #f0fdf4;
+  background: rgba(140, 128, 216, 0.08);
 }
+
 .cal-cell.today .cal-date {
-  color: #16a34a;
+  color: var(--theme-primary-deep);
 }
+
 .cal-cell.selected {
-  box-shadow: inset 0 0 0 3rpx rgba(47, 133, 90, 0.22);
+  box-shadow: inset 0 0 0 3rpx rgba(140, 128, 216, 0.22);
 }
+
 .cal-date {
   font-size: 26rpx;
   font-weight: 600;
   color: #374151;
 }
+
 .cal-events {
   margin-top: 8rpx;
 }
+
 .cal-event {
   display: flex;
   align-items: center;
@@ -620,11 +711,13 @@ export default {
   box-sizing: border-box;
   color: #334155;
 }
+
 .cal-event.deadline {
   border-color: #ef4444;
   color: #ef4444;
   background: #fff5f5;
 }
+
 .cal-event-icon {
   width: 28rpx;
   height: 28rpx;
@@ -634,6 +727,7 @@ export default {
   box-sizing: border-box;
   flex: 0 0 auto;
 }
+
 .cal-event-icon::before,
 .cal-event-icon::after {
   content: '';
@@ -644,19 +738,24 @@ export default {
   background: #64748b;
   opacity: 0.9;
 }
+
 .cal-event-icon::before {
   top: 9rpx;
 }
+
 .cal-event-icon::after {
   top: 16rpx;
 }
+
 .cal-event-icon.deadline {
   border-color: #ef4444;
 }
+
 .cal-event-icon.deadline::before,
 .cal-event-icon.deadline::after {
   background: #ef4444;
 }
+
 .cal-event-text {
   font-size: 20rpx;
   color: inherit;
@@ -665,35 +764,46 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .cal-more {
   font-size: 20rpx;
   color: #64748b;
 }
+
 .day-panel {
   margin-top: 18rpx;
   border-top: 1rpx solid #e5e7eb;
   padding-top: 16rpx;
 }
+
 .day-panel-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 10rpx;
 }
+
 .day-panel-title {
   font-size: 28rpx;
   font-weight: 700;
   color: #0f172a;
 }
+
 .day-panel-sub {
   font-size: 22rpx;
   color: #64748b;
 }
+
 .day-item {
   padding: 18rpx 0;
   border-bottom: 1rpx solid #f1f5f9;
 }
+
 .day-item:last-child {
   border-bottom: none;
+}
+
+.bottom-space {
+  height: 20rpx;
 }
 </style>

@@ -1,61 +1,94 @@
 <template>
   <view class="home-page">
-    <!-- 顶部导航 - 吸顶 -->
+    <view class="page-glow page-glow-left"></view>
+    <view class="page-glow page-glow-right"></view>
+
     <view class="header" :class="{ 'is-fixed': isNavFixed }">
-      <view class="school-info">
-        <view class="avatar">🎓</view>
-        <view class="school-name">
-          <text class="name">nopay校园圈</text>
-          <text class="sub-name">同济大学！！</text>
+      <view class="brand-mark">
+        <view class="brand-icon">◌</view>
+        <view class="brand-copy">
+          <text class="brand-name">逛校园</text>
+          <text class="brand-sub">遇见你的校园圈层</text>
         </view>
       </view>
-      <view class="header-actions">
-        <text class="icon">⋮</text>
-        <text class="icon">⊙</text>
-      </view>
+      <view class="header-pill" @click="switchTab('info')">订阅中心</view>
     </view>
 
-    <!-- 占位元素 -->
-    <view class="header-placeholder" v-if="isNavFixed"></view>
+    <view v-if="isNavFixed" class="header-placeholder"></view>
 
-    <!-- 搜索栏 -->
-    <view class="search-bar">
-      <text class="search-icon">🔍</text>
-      <input 
+    <view class="hero-card">
+      <view class="hero-copy">
+        <text class="hero-badge">Campus Social</text>
+        <text class="hero-title">分享日常 发现同好</text>
+        <text class="hero-subtitle">用更柔和的视觉，把帖子、活动和校园信息放进同一个入口。</text>
+      </view>
+      <view class="hero-ornament">
+        <view class="hero-orb hero-orb-main"></view>
+        <view class="hero-orb hero-orb-small"></view>
+      </view>
+
+      <view class="search-shell">
+        <text class="search-prefix">搜索</text>
+        <input
+          v-model="keyword"
           class="search-input"
           type="text"
-          v-model="keyword"
-          placeholder="点我查找内容"
+          placeholder="输入帖子、活动、圈子关键词"
           @confirm="search"
         />
-    </view>
-
-    <view class="info-entry" @click="goInfoCenter">
-      <view>
-        <text class="info-entry-title">信息订阅中心</text>
-        <text class="info-entry-subtitle">聚合公众号、教务与 Canvas 通知</text>
+        <view class="search-action" @click="search">查找</view>
       </view>
-      <text class="info-entry-arrow">></text>
     </view>
 
-    <!-- 热门话题 -->
-    <HotTopics 
-      :topics="topics"
+    <view class="entry-board">
+      <view class="entry-board-head">
+        <text class="entry-board-title">常用入口</text>
+        <text class="entry-board-meta">{{ categories.length || 0 }} 个分区</text>
+      </view>
+      <view class="entry-grid">
+        <view
+          v-for="item in categories.slice(0, 4)"
+          :key="item.id"
+          class="entry-card"
+          @click="switchCategory(item.id)"
+        >
+          <text class="entry-icon">{{ item.id === 0 ? '◎' : '◈' }}</text>
+          <text class="entry-label">{{ item.name }}</text>
+        </view>
+        <view class="entry-card accent" @click="goPublish">
+          <text class="entry-icon">+</text>
+          <text class="entry-label">发帖</text>
+        </view>
+        <view class="entry-card accent" @click="switchTab('profile')">
+          <text class="entry-icon">◌</text>
+          <text class="entry-label">我的主页</text>
+        </view>
+      </view>
+    </view>
+
+    <HotTopics
+      :topics="topics.slice(0, 4)"
       @topic-click="handleTopicClick"
       @more-click="handleTopicsMore"
     />
 
-    <!-- 分类导航 -->
-    <CategoryNav 
+    <view class="stream-head">
+      <view>
+        <text class="stream-title">校园动态</text>
+        <text class="stream-subtitle">从你关注的内容开始浏览</text>
+      </view>
+      <view class="stream-chip">{{ posts.length }} 条内容</view>
+    </view>
+
+    <CategoryNav
       :categories="categories"
       :current-category="currentCategory"
       :is-fixed="isNavFixed"
       @category-change="switchCategory"
     />
 
-    <!-- 帖子列表 -->
     <view class="post-list">
-      <PostCard 
+      <PostCard
         v-for="post in posts"
         :key="post.id"
         :post="post"
@@ -66,37 +99,23 @@
         @product-click="handleProductClick"
         @comment-click="handleCommentClick"
         @like-click="handleLikeClick"
-		@top-click="handleTopClick"
+        @top-click="handleTopClick"
       />
     </view>
 
-    <!-- 底部占位 -->
     <view class="bottom-space"></view>
-
-    <!-- TabBar -->
-    <TabBar 
-      :current-tab="currentTab"
-      @tab-change="switchTab"
-    />
+    <TabBar :current-tab="currentTab" @tab-change="switchTab" />
   </view>
 </template>
 
-
 <script>
-import TabBar from '@/components/TabBar.vue';
-import PostCard from '@/components/PostCard.vue';
-import HotTopics from '@/components/HotTopics.vue';
-import CategoryNav from '@/components/CategoryNav.vue';
-import {userApi} from '@/api/user.js';
-import { setPostTop, likePost } from '@/api/post.js';
-
-// ⭐ 引入 API
-import { 
-  getHotTopics, 
-  getCategories, 
-  getPosts,
-  searchPosts
-} from '@/api/index.js';
+import TabBar from '@/components/TabBar.vue'
+import PostCard from '@/components/PostCard.vue'
+import HotTopics from '@/components/HotTopics.vue'
+import CategoryNav from '@/components/CategoryNav.vue'
+import { userApi } from '@/api/user.js'
+import { setPostTop, likePost } from '@/api/post.js'
+import { getHotTopics, getCategories, getPosts, searchPosts } from '@/api/index.js'
 
 export default {
   components: {
@@ -105,369 +124,496 @@ export default {
     HotTopics,
     CategoryNav
   },
-
   data() {
     return {
       currentTab: 'home',
       currentCategory: 0,
       isNavFixed: false,
-
       topics: [],
       categories: [],
       posts: [],
       keyword: '',
-
       page: 1,
       pageSize: 10,
-      hasMore: true,
-    };
+      hasMore: true
+    }
   },
-
   async onLoad() {
-    await Promise.all([
-      this.loadTopics(),
-      this.loadCategories(),
-      this.loadPosts()
-    ]);
+    await Promise.all([this.loadTopics(), this.loadCategories(), this.loadPosts()])
   },
-
   onShow() {
-    uni.hideTabBar({ animation: false });
-    this.loadPosts(true);
+    uni.hideTabBar({ animation: false })
+    this.loadPosts(true)
   },
-
   onPageScroll(e) {
-    this.isNavFixed = e.scrollTop > 400;
+    this.isNavFixed = e.scrollTop > 500
   },
-
   methods: {
-    /** 加载热门话题 */
     async loadTopics() {
-      const res = await getHotTopics();
-      if (res.code === 200) {
-        this.topics = res.data;
-      }
+      const res = await getHotTopics()
+      if (res.code === 200) this.topics = res.data
     },
     async handleTopClick(post) {
-	  // 1. 如果已经置顶 → 取消置顶
-	  if (post.isTop) {
-	    const res = await setPostTop(post.id, false);
-	    if (res.code === 200) {
-	      uni.showToast({ title: '已取消置顶', icon: 'none' });
-	      this.loadPosts(true);
-	    }
-	    return;
-	  }
-	  // 2. 检查积分（后端要求至少30积分，后端会扣减）
-	  const userRes = await userApi.getUserInfo();
-	  const user = userRes.data;
-	  if ((user.points || 0) < 30) {
-	    return uni.showToast({
-	      title: '积分不足，需30积分置顶',
-	      icon: 'none'
-	    });
-	  }
-	  // 3. 调用置顶接口（后端扣减积分并记录交易）
-	  const res = await setPostTop(post.id, true);
-	  if (res.code === 200) {
-	    uni.showToast({ title: '置顶成功', icon: 'success' });
-	    this.loadPosts(true);
-	  }
-	},
-
-
-    /** 加载分类 */
-    async loadCategories() {
-      const res = await getCategories();
-      if (res.code === 200) {
-        const raw = Array.isArray(res.data?.list) ? res.data.list : [];
-        const cats = raw.filter(c => c && (c.isActive === undefined || c.isActive));
-        // 保证有“全部”
-        if (!cats.some(c => c && c.id === 0)) {
-          cats.unshift({ id: 0, name: '全部' });
+      if (post.isTop) {
+        const res = await setPostTop(post.id, false)
+        if (res.code === 200) {
+          uni.showToast({ title: '已取消置顶', icon: 'none' })
+          this.loadPosts(true)
         }
-        this.categories = cats;
+        return
+      }
+
+      const userRes = await userApi.getUserInfo()
+      const user = userRes.data
+      if ((user.points || 0) < 30) {
+        uni.showToast({ title: '积分不足，需要 30 积分置顶', icon: 'none' })
+        return
+      }
+
+      const res = await setPostTop(post.id, true)
+      if (res.code === 200) {
+        uni.showToast({ title: '置顶成功', icon: 'success' })
+        this.loadPosts(true)
       }
     },
+    async loadCategories() {
+      const res = await getCategories()
+      if (res.code !== 200) return
 
-    /** 加载帖子列表 */
+      const raw = Array.isArray(res.data?.list) ? res.data.list : []
+      const cats = raw.filter(c => c && (c.isActive === undefined || c.isActive))
+      if (!cats.some(c => c && c.id === 0)) cats.unshift({ id: 0, name: '全部' })
+      this.categories = cats
+    },
     async loadPosts(reset = true) {
       if (reset) {
-        this.page = 1;
-        this.posts = [];
+        this.page = 1
+        this.posts = []
       }
-    
+
       const params = {
         page: this.page,
         pageSize: this.pageSize
-      };
+      }
       if (this.currentCategory && this.currentCategory > 0) {
-        params.categoryId = this.currentCategory;
+        params.categoryId = this.currentCategory
       }
-      const res = await getPosts(params);
-    
-      if (res.code === 200) {
-        const list = res.data.list;
-    
-        // 合并数据
-        this.posts = reset ? list : [...this.posts, ...list];
-        this.hasMore = res.data.hasMore;
-    
-        if (res.data.hasMore) {
-          this.page++;
-        }
-    
-        // ⭐ 排序：置顶优先，其次按时间倒序
-        this.posts.sort((a, b) => {
-          const topDiff = (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0);
-          if (topDiff !== 0) return topDiff;
-          const tb = new Date(b.time).getTime() || 0;
-          const ta = new Date(a.time).getTime() || 0;
-          return tb - ta;
-        });
-      }
+
+      const res = await getPosts(params)
+      if (res.code !== 200) return
+
+      const list = Array.isArray(res.data?.list) ? res.data.list : []
+      this.posts = reset ? list : [...this.posts, ...list]
+      this.hasMore = !!res.data?.hasMore
+      if (this.hasMore) this.page += 1
+
+      this.posts.sort((a, b) => {
+        const topDiff = (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0)
+        if (topDiff !== 0) return topDiff
+        const tb = new Date(b.time).getTime() || 0
+        const ta = new Date(a.time).getTime() || 0
+        return tb - ta
+      })
     },
-
-
-    /** 切换分类并重新加载 */
     async switchCategory(id) {
-      this.currentCategory = id;
-      await this.loadPosts(true);
+      this.currentCategory = id
+      await this.loadPosts(true)
     },
-
     async search() {
-      const kw = (this.keyword || '').trim();
+      const kw = (this.keyword || '').trim()
       if (!kw) {
-        await this.loadPosts(true);
-        return;
+        await this.loadPosts(true)
+        return
       }
-      const res = await searchPosts(kw);
-      if (res.code === 200) {
-        const list = res.data?.list || [];
-        this.posts = list;
-        this.hasMore = !!res.data?.hasMore;
-        this.page = 1;
-        this.posts.sort((a, b) => {
-          const topDiff = (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0);
-          if (topDiff !== 0) return topDiff;
-          const tb = new Date(b.time).getTime() || 0;
-          const ta = new Date(a.time).getTime() || 0;
-          return tb - ta;
-        });
-      }
-    },
 
+      const res = await searchPosts(kw)
+      if (res.code !== 200) return
+      this.posts = res.data?.list || []
+      this.hasMore = !!res.data?.hasMore
+      this.page = 1
+    },
     handleTopicClick(post) {
-      uni.navigateTo({ 
-        url: `/pages/post/detail?id=${post.id}`
-      });
+      uni.navigateTo({ url: `/pages/post/detail?id=${post.id}` })
     },
-
     handleTopicsMore() {
-      uni.navigateTo({ url: '/pages/hot-posts/list' });
+      uni.navigateTo({ url: '/pages/hot-posts/list' })
     },
-
-    goInfoCenter() {
-      uni.navigateTo({ url: '/pages/info-center/index' });
-    },
-
     switchTab(tabId) {
       if (tabId === 'publish') {
-        uni.navigateTo({ url: '/pages/publish/index' });
-      } else {
-        this.currentTab = tabId;
+        uni.navigateTo({ url: '/pages/publish/index' })
+        return
       }
+      if (tabId === 'info') {
+        uni.switchTab({ url: '/pages/info-center/index' })
+        return
+      }
+      if (tabId === 'profile') {
+        uni.switchTab({ url: '/pages/profile/index' })
+        return
+      }
+      this.currentTab = tabId
     },
-
+    goPublish() {
+      uni.navigateTo({ url: '/pages/publish/index' })
+    },
     handleUserClick(post) {
-      uni.navigateTo({ url: `/pages/user/home?id=${userId}` })
+      if (!post?.userId) return
+      uni.navigateTo({ url: `/pages/user/home?id=${post.userId}` })
     },
-
-    handlePostMore(post) {
-      uni.showActionSheet({
-        itemList: ['收藏', '分享', '举报']
-      });
+    handlePostMore() {
+      uni.showActionSheet({ itemList: ['收藏', '分享', '举报'] })
     },
-
     handlePostClick(post) {
-      uni.navigateTo({ url: `/pages/post/detail?id=${post.id}` });
+      uni.navigateTo({ url: `/pages/post/detail?id=${post.id}` })
     },
-
     handleImageClick({ post, imageIndex }) {
       if (post.images && post.images.length > 0 && !post.images[0].startsWith('#')) {
-        uni.previewImage({ urls: post.images, current: imageIndex });
+        uni.previewImage({ urls: post.images, current: imageIndex })
       }
     },
-
     handleProductClick(post) {
-      uni.navigateTo({ url: `/pages/post/detail?id=${post.id}` });
+      uni.navigateTo({ url: `/pages/post/detail?id=${post.id}` })
     },
-
     handleCommentClick(post) {
-      uni.navigateTo({ url: `/pages/post/detail?id=${post.id}&focus=comment` });
+      uni.navigateTo({ url: `/pages/post/detail?id=${post.id}&focus=comment` })
     },
-
     handleLikeClick({ post, isLiked }) {
-      (async () => {
+      ;(async () => {
         try {
-          const res = await likePost(post.id, isLiked);
-          if (res.code === 200) {
-            const target = this.posts.find(p => p.id === post.id);
-            if (target) {
-              target.isLiked = isLiked;
-              const cur = parseInt(target.likes || 0) || 0;
-              const next = cur + (isLiked ? 1 : -1);
-              target.likes = next < 0 ? 0 : next;
-            }
-          }
-        } catch (e) {
-          uni.showToast({ title: '点赞失败', icon: 'none' });
+          const res = await likePost(post.id, isLiked)
+          if (res.code !== 200) return
+          const target = this.posts.find(p => p.id === post.id)
+          if (!target) return
+          target.isLiked = isLiked
+          const cur = parseInt(target.likes || 0, 10) || 0
+          const next = cur + (isLiked ? 1 : -1)
+          target.likes = next < 0 ? 0 : next
+        } catch (error) {
+          uni.showToast({ title: '点赞失败', icon: 'none' })
         }
-      })();
+      })()
     }
   }
-};
+}
 </script>
-
-
-
 
 <style scoped>
 .home-page {
+  position: relative;
   min-height: 100vh;
-  background-color: #f5f5f5;
-  padding-bottom: 150rpx;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(186, 162, 213, 0.28), transparent 30%),
+    radial-gradient(circle at top right, rgba(140, 128, 216, 0.18), transparent 26%),
+    linear-gradient(180deg, #fbf8f3 0%, #f7f4ee 35%, #f5f1eb 100%);
+  padding: 28rpx 0 160rpx;
 }
 
-/* 顶部导航 */
+.page-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(20rpx);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.page-glow-left {
+  width: 280rpx;
+  height: 280rpx;
+  top: 40rpx;
+  left: -90rpx;
+  background: rgba(185, 160, 213, 0.36);
+}
+
+.page-glow-right {
+  width: 220rpx;
+  height: 220rpx;
+  top: 150rpx;
+  right: -60rpx;
+  background: rgba(140, 128, 216, 0.22);
+}
+
 .header {
+  position: relative;
+  z-index: 3;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20rpx 30rpx;
-  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+  margin: 0 30rpx 20rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 26rpx;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18rpx);
+  -webkit-backdrop-filter: blur(18rpx);
+  border: 1rpx solid rgba(140, 128, 216, 0.14);
   transition: all 0.3s ease;
-  z-index: 100;
 }
 
-/* 顶部导航吸顶样式 */
 .header.is-fixed {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: rgba(232, 245, 233, 0.95); /* 半透明效果 */
-  backdrop-filter: blur(20rpx);
-  -webkit-backdrop-filter: blur(20rpx);
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+  top: 18rpx;
+  left: 30rpx;
+  right: 30rpx;
+  box-shadow: var(--theme-shadow-soft);
 }
 
-/* header 占位元素 */
 .header-placeholder {
-  height: 120rpx; /* 和 header 的高度一致 */
+  height: 116rpx;
 }
 
-.school-info {
+.brand-mark {
   display: flex;
   align-items: center;
+  gap: 18rpx;
 }
 
-.avatar {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  background-color: #c8e6c9;
+.brand-icon {
+  width: 74rpx;
+  height: 74rpx;
+  border-radius: 22rpx;
+  background: var(--theme-gradient-strong);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40rpx;
-  margin-right: 20rpx;
+  color: #fff;
+  font-size: 34rpx;
+  box-shadow: 0 10rpx 22rpx rgba(121, 110, 176, 0.2);
 }
 
-.school-name {
+.brand-copy {
   display: flex;
   flex-direction: column;
 }
 
-.name {
+.brand-name {
   font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
+  font-weight: 700;
+  color: var(--theme-ink);
 }
 
-.sub-name {
-  font-size: 24rpx;
-  color: #666;
+.brand-sub {
   margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--theme-muted);
 }
 
-.header-actions {
-  display: flex;
-  gap: 30rpx;
+.header-pill {
+  padding: 14rpx 24rpx;
+  border-radius: 999rpx;
+  background: rgba(140, 128, 216, 0.1);
+  color: var(--theme-primary-deep);
+  font-size: 24rpx;
+  font-weight: 600;
 }
 
-.icon {
-  font-size: 40rpx;
-  color: #333;
+.hero-card {
+  position: relative;
+  z-index: 2;
+  margin: 0 30rpx 24rpx;
+  padding: 38rpx 32rpx 30rpx;
+  border-radius: 34rpx;
+  background: var(--theme-gradient);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow);
+  overflow: hidden;
 }
 
-/* 搜索栏 */
-.search-bar {
-  margin: 20rpx 30rpx;
-  padding: 20rpx 30rpx;
-  background-color: #fff;
-  border-radius: 50rpx;
-  display: flex;
-  align-items: center;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  width: 74%;
 }
 
-.search-icon {
-  margin-right: 15rpx;
-  font-size: 32rpx;
-}
-
-.search-text {
-  color: #999;
-  font-size: 28rpx;
-}
-
-.info-entry {
-  margin: 0 30rpx 20rpx;
-  padding: 28rpx 30rpx;
-  border-radius: 28rpx;
-  background: linear-gradient(135deg, #1f5f46 0%, #2f855a 65%, #e7f0dc 100%);
-  color: #fff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 10rpx 28rpx rgba(31, 95, 70, 0.18);
-}
-
-.info-entry-title,
-.info-entry-subtitle {
+.hero-badge,
+.hero-title,
+.hero-subtitle {
   display: block;
 }
 
-.info-entry-title {
-  font-size: 32rpx;
-  font-weight: bold;
+.hero-badge {
+  font-size: 22rpx;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+  color: var(--theme-primary-deep);
+  font-weight: 700;
 }
 
-.info-entry-subtitle {
-  margin-top: 8rpx;
-  font-size: 23rpx;
-  opacity: 0.9;
+.hero-title {
+  margin-top: 18rpx;
+  font-size: 54rpx;
+  line-height: 1.18;
+  font-weight: 800;
+  color: var(--theme-ink);
 }
 
-.info-entry-arrow {
+.hero-subtitle {
+  margin-top: 16rpx;
+  font-size: 25rpx;
+  line-height: 1.7;
+  color: #67607d;
+}
+
+.hero-ornament {
+  position: absolute;
+  right: 24rpx;
+  top: 30rpx;
+  width: 190rpx;
+  height: 190rpx;
+}
+
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.hero-orb-main {
+  width: 156rpx;
+  height: 156rpx;
+  right: 0;
+  top: 0;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.96), rgba(185, 160, 213, 0.48));
+  border: 1rpx solid rgba(255, 255, 255, 0.4);
+}
+
+.hero-orb-small {
+  width: 84rpx;
+  height: 84rpx;
+  left: 6rpx;
+  bottom: 8rpx;
+  background: radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.84), rgba(140, 128, 216, 0.34));
+}
+
+.search-shell {
+  position: relative;
+  z-index: 2;
+  margin-top: 34rpx;
+  min-height: 92rpx;
+  padding: 10rpx 12rpx 10rpx 28rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.search-prefix {
+  font-size: 24rpx;
+  color: var(--theme-muted);
+}
+
+.search-input {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--theme-ink);
+}
+
+.search-action {
+  min-width: 132rpx;
+  height: 72rpx;
+  border-radius: 999rpx;
+  background: var(--theme-ink);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.entry-board {
+  margin: 0 30rpx 24rpx;
+  padding: 28rpx;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  border-radius: 30rpx;
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.entry-board-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.entry-board-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--theme-ink);
+}
+
+.entry-board-meta {
+  font-size: 22rpx;
+  color: var(--theme-muted);
+}
+
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.entry-card {
+  min-height: 118rpx;
+  padding: 20rpx 18rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.entry-card.accent {
+  background: linear-gradient(135deg, rgba(185, 160, 213, 0.18), rgba(140, 128, 216, 0.08));
+}
+
+.entry-icon {
   font-size: 34rpx;
-  font-family: monospace;
+  color: var(--theme-primary-deep);
 }
 
-/* 帖子列表 */
+.entry-label {
+  font-size: 24rpx;
+  color: var(--theme-ink);
+  font-weight: 600;
+}
+
+.stream-head {
+  margin: 12rpx 30rpx 8rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.stream-title,
+.stream-subtitle {
+  display: block;
+}
+
+.stream-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
+}
+
+.stream-subtitle {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--theme-muted);
+}
+
+.stream-chip {
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(140, 128, 216, 0.1);
+  color: var(--theme-primary-deep);
+  font-size: 22rpx;
+}
+
 .post-list {
-  padding: 20rpx 30rpx;
+  padding: 18rpx 30rpx 0;
 }
 
 .bottom-space {

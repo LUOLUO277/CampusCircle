@@ -161,6 +161,9 @@ export default {
         const res = await syncCanvasBinding()
         if (res.code === 200) {
           uni.showToast({ title: `同步完成 ${res.data.successCount || 0} 条`, icon: 'none' })
+          setTimeout(() => {
+            uni.switchTab({ url: '/pages/info-center/index' })
+          }, 500)
         }
         await this.loadBinding()
       } catch (err) {
@@ -183,6 +186,9 @@ export default {
           const retry = await syncCanvasBinding()
           if (retry.code === 200) {
             uni.showToast({ title: `同步完成 ${retry.data.successCount || 0} 条`, icon: 'none' })
+            setTimeout(() => {
+              uni.switchTab({ url: '/pages/info-center/index' })
+            }, 500)
           }
           await this.loadBinding()
           return
