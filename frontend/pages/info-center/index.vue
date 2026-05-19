@@ -25,19 +25,10 @@
       </picker>
     </view>
 
-    <view class="toolbar">
-      <picker class="picker source-picker" :range="sourceOptions" range-key="name" @change="onSourceChange">
-        <view class="picker-value">{{ currentSourceLabel }}</view>
-      </picker>
-      <view class="toolbar-right">
-        <label class="subscribed-switch">
-          <switch :checked="!!filters.onlySubscribed" color="#8c80d8" @change="onSubscribedToggle" />
-          <text>只看已订阅</text>
-        </label>
-        <view class="view-toggle">
-          <button class="toggle-btn" :class="{ active: viewMode === 'cards' }" @click="setViewMode('cards')">卡片</button>
-          <button class="toggle-btn" :class="{ active: viewMode === 'calendar' }" @click="setViewMode('calendar')">日历</button>
-        </view>
+    <view class="toolbar toolbar-view">
+      <view class="view-toggle">
+        <button class="toggle-btn" :class="{ active: viewMode === 'cards' }" @click="setViewMode('cards')">卡片</button>
+        <button class="toggle-btn" :class="{ active: viewMode === 'calendar' }" @click="setViewMode('calendar')">日历</button>
       </view>
     </view>
 
@@ -130,7 +121,7 @@
 
 <script>
 import TabBar from '@/components/TabBar.vue'
-import { getInfoNotices, getInfoSources } from '@/api/info-center'
+import { getInfoNotices } from '@/api/info-center'
 
 export default {
   components: { TabBar },
@@ -139,7 +130,6 @@ export default {
       hasBootstrapped: false,
       viewMode: 'cards',
       notices: [],
-      sources: [],
       categories: [
         { value: '', label: '全部分类' },
         { value: '通知', label: '通知' },
@@ -149,23 +139,15 @@ export default {
       ],
       filters: {
         category: '',
-        sourceId: '',
-        keyword: '',
-        onlySubscribed: false
+        keyword: ''
       },
       calendarCursor: null,
       selectedDateKey: ''
     }
   },
   computed: {
-    sourceOptions() {
-      return [{ id: '', name: '全部来源' }, ...this.sources]
-    },
     currentCategoryLabel() {
       return this.categories.find(item => item.value === this.filters.category)?.label || '全部分类'
-    },
-    currentSourceLabel() {
-      return this.sourceOptions.find(item => `${item.id}` === `${this.filters.sourceId}`)?.name || '全部来源'
     },
     weekdays() {
       return ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
@@ -236,7 +218,6 @@ export default {
   onShow() {
     uni.hideTabBar({ animation: false })
     if (!this.hasBootstrapped) return
-    this.loadSources()
     this.loadNotices()
   },
   methods: {
@@ -245,18 +226,12 @@ export default {
       const now = new Date()
       this.calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1)
       this.selectedDateKey = this.dateKey(now)
-      await Promise.all([this.loadSources(), this.loadNotices()])
+      await this.loadNotices()
       this.hasBootstrapped = true
     },
     setViewMode(mode) {
       this.viewMode = mode
       uni.setStorageSync('infoCenterViewMode', mode)
-    },
-    async loadSources() {
-      const res = await getInfoSources()
-      if (res.code === 200) {
-        this.sources = res.data || []
-      }
     },
     async loadNotices() {
       const res = await getInfoNotices({
@@ -270,14 +245,6 @@ export default {
     },
     onCategoryChange(event) {
       this.filters.category = this.categories[event.detail.value].value
-      this.loadNotices()
-    },
-    onSourceChange(event) {
-      this.filters.sourceId = this.sourceOptions[event.detail.value].id
-      this.loadNotices()
-    },
-    onSubscribedToggle(event) {
-      this.filters.onlySubscribed = !!event.detail.value
       this.loadNotices()
     },
     goHome() {
@@ -430,6 +397,10 @@ export default {
   align-items: center;
 }
 
+.toolbar-view {
+  justify-content: flex-end;
+}
+
 .toolbar-right {
   display: flex;
   align-items: center;
@@ -455,25 +426,9 @@ export default {
   padding: 24rpx 26rpx;
 }
 
-.source-picker {
-  flex: 1;
-}
-
 .picker-value {
   color: var(--theme-ink);
   font-size: 26rpx;
-}
-
-.subscribed-switch {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  background: rgba(255, 255, 255, 0.82);
-  border-radius: 999rpx;
-  padding: 14rpx 18rpx;
-  font-size: 24rpx;
-  color: #334155;
-  box-shadow: var(--theme-shadow-soft);
 }
 
 .notice-card {
