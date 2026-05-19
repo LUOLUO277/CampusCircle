@@ -20,8 +20,8 @@
         placeholder="搜索标题、摘要、关键词"
         @confirm="loadNotices"
       />
-      <picker class="picker" :range="categories" range-key="label" @change="onCategoryChange">
-        <view class="picker-value">{{ currentCategoryLabel }}</view>
+      <picker class="picker" :range="sources" range-key="label" @change="onSourceChange">
+        <view class="picker-value">{{ currentSourceLabel }}</view>
       </picker>
     </view>
 
@@ -33,7 +33,7 @@
     </view>
 
     <view v-if="viewMode === 'cards'" class="list">
-      <view v-for="notice in notices" :key="notice.id" class="notice-card" @click="goDetail(notice.id)">
+      <view v-for="notice in visibleNotices" :key="notice.id" class="notice-card" @click="goDetail(notice.id)">
         <view class="notice-header">
           <text class="badge">{{ notice.category || '通知' }}</text>
           <text class="source">{{ notice.sourceName }}</text>
@@ -47,12 +47,9 @@
         <view v-if="notice.tags && notice.tags.length" class="tag-row">
           <text v-for="tag in notice.tags" :key="tag" class="tag">{{ tag }}</text>
         </view>
-        <view class="source-action-row">
-          <button class="source-btn" @click.stop="openSource(notice)">查看来源</button>
-        </view>
       </view>
 
-      <view v-if="!notices.length" class="empty">暂无通知，先去订阅来源或触发一次同步。</view>
+      <view v-if="!visibleNotices.length" class="empty">暂无通知，先去订阅来源或触发一次同步。</view>
     </view>
 
     <view v-else class="calendar">
@@ -111,13 +108,10 @@
             <text class="meta-text">发布时间 {{ formatTime(notice.publishTime) }}</text>
             <text v-if="notice.deadline" class="deadline">截止 {{ formatTime(notice.deadline) }}</text>
           </view>
-          <view class="source-action-row">
-            <button class="source-btn" @click.stop="openSource(notice)">查看来源</button>
-          </view>
         </view>
       </view>
 
-      <view v-if="!notices.length" class="empty">暂无通知，先去订阅来源或触发一次同步。</view>
+      <view v-if="!visibleNotices.length" class="empty">暂无通知，先去订阅来源或触发一次同步。</view>
     </view>
 
     <view class="bottom-space"></view>
@@ -136,15 +130,13 @@ export default {
       hasBootstrapped: false,
       viewMode: 'cards',
       notices: [],
-      categories: [
-        { value: '', label: '全部分类' },
-        { value: '通知', label: '通知' },
-        { value: '截止提醒', label: '截止提醒' },
-        { value: '活动', label: '活动' },
-        { value: '报名', label: '报名' }
+      sources: [
+        { value: '', label: '全部来源' },
+        { value: 'canvas', label: 'Canvas' },
+        { value: 'tongji', label: '1系统' }
       ],
       filters: {
-        category: '',
+        source: '',
         keyword: ''
       },
       calendarCursor: null,
@@ -152,8 +144,13 @@ export default {
     }
   },
   computed: {
-    currentCategoryLabel() {
-      return this.categories.find(item => item.value === this.filters.category)?.label || '全部分类'
+    currentSourceLabel() {
+      return this.sources.find(item => item.value === this.filters.source)?.label || '全部来源'
+    },
+    visibleNotices() {
+      const source = this.filters.source
+      if (!source) return this.notices || []
+      return (this.notices || []).filter(notice => this.matchSource(notice, source))
     },
     weekdays() {
       return ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
@@ -163,7 +160,7 @@ export default {
       return `${cursor.getFullYear()}年 ${cursor.getMonth() + 1}月`
     },
     noticeEvents() {
-      return (this.notices || [])
+      return (this.visibleNotices || [])
         .map(notice => {
           const dt = this.parseIsoDate(notice.deadline || notice.publishTime)
           if (!dt) return null
@@ -241,7 +238,7 @@ export default {
     },
     async loadNotices() {
       const res = await getInfoNotices({
-        ...this.filters,
+        keyword: this.filters.keyword,
         page: 1,
         pageSize: 40
       })
@@ -249,9 +246,8 @@ export default {
         this.notices = res.data.list || []
       }
     },
-    onCategoryChange(event) {
-      this.filters.category = this.categories[event.detail.value].value
-      this.loadNotices()
+    onSourceChange(event) {
+      this.filters.source = this.sources[event.detail.value].value
     },
     goHome() {
       uni.switchTab({ url: '/pages/index/index' })
@@ -262,27 +258,11 @@ export default {
     goDetail(id) {
       uni.navigateTo({ url: `/pages/info-center/detail?id=${id}` })
     },
-    openSource(notice = {}) {
-      const url = this.resolveSourceUrl(notice)
-      if (!url) {
-        uni.showToast({ title: '暂无来源链接', icon: 'none' })
-        return
-      }
-      // #ifdef H5
-      window.open(url, '_blank')
-      // #endif
-      // #ifndef H5
-      uni.setClipboardData({ data: url })
-      uni.showToast({ title: '来源链接已复制', icon: 'none' })
-      // #endif
-    },
-    resolveSourceUrl(notice = {}) {
-      const originalUrl = `${notice.originalUrl || ''}`.trim()
-      if (originalUrl) return originalUrl
+    matchSource(notice = {}, source = '') {
       const sourceName = `${notice.sourceName || ''}`
-      if (/canvas/i.test(sourceName)) return 'https://canvas.tongji.edu.cn'
-      if (/tongji|同济|1系统|1 系统/i.test(sourceName)) return 'https://1.tongji.edu.cn/myAnnouncement'
-      return ''
+      if (source === 'canvas') return /canvas/i.test(sourceName)
+      if (source === 'tongji') return /tongji|同济|1系统|1 系统/i.test(sourceName)
+      return true
     },
     formatTime(value) {
       if (!value) return ''
@@ -784,27 +764,6 @@ export default {
 
 .day-item:last-child {
   border-bottom: none;
-}
-
-.source-action-row {
-  margin-top: 12rpx;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.source-btn {
-  margin: 0;
-  height: 56rpx;
-  line-height: 56rpx;
-  padding: 0 20rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  background: rgba(140, 128, 216, 0.12);
-  color: var(--theme-primary-deep);
-}
-
-.source-btn::after {
-  border: none;
 }
 
 .bottom-space {
