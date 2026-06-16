@@ -1,8 +1,8 @@
 <template>
   <view class="offline-page">
     <view class="card">
-      <text class="title">私聊功能已下线</text>
-      <text class="desc">聊天详情页已停止使用，当前保留文件仅用于兼容旧路由，页面不会再请求聊天记录或发送消息接口。</text>
+      <text class="title">私聊功能升级中</text>
+      <text class="desc">当前暂不支持私聊，后续开放后可在消息中心继续使用。</text>
       <button class="primary-btn" @click="goProfile">返回个人中心</button>
     </view>
   </view>

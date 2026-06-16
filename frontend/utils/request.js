@@ -170,6 +170,15 @@ export const put = (url, data = {}, config = {}) => {
   })
 }
 
+export const patch = (url, data = {}, config = {}) => {
+  return request({
+    url,
+    method: 'PATCH',
+    data,
+    ...config
+  })
+}
+
 export const del = (url, data = {}, config = {}) => {
   return request({
     url,
@@ -223,6 +232,7 @@ export default {
   get,
   post,
   put,
+  patch,
   del,
   delete: del,
   upload

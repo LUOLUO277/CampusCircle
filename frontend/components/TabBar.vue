@@ -32,10 +32,11 @@ export default {
   data() {
     return {
       tabbarList: [
-        { id: 'home', label: '首页', icon: '⌂', path: '/pages/index/index' },
-        { id: 'info', label: '订阅', icon: '◫', path: '/pages/info-center/index' },
+        { id: 'home', label: '首页', icon: '◉', path: '/pages/index/index' },
+        { id: 'course', label: '课程圈子', icon: '◎', path: '/pages/course-circle/index' },
         { id: 'publish', label: '', icon: '+', path: '/pages/publish/index' },
-        { id: 'profile', label: '我的', icon: '◌', path: '/pages/profile/index' }
+        { id: 'info', label: '订阅', icon: '◌', path: '/pages/info-center/index' },
+        { id: 'profile', label: '我的', icon: '◍', path: '/pages/profile/index' }
       ]
     }
   },
@@ -108,9 +109,9 @@ export default {
 }
 
 .tabbar-icon {
-  font-size: 44rpx;
+  font-size: 40rpx;
   color: #8f88a6;
-  margin-bottom: 4rpx;
+  margin-bottom: 6rpx;
 }
 
 .tabbar-label {

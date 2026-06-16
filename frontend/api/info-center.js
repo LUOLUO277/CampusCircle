@@ -29,6 +29,15 @@ export const offlineManualNotice = (id) => request.post(`/admin/info-center/noti
 
 export const getCanvasBinding = () => request.get('/canvas-binding')
 export const saveCanvasBinding = (data) => request.put('/canvas-binding', data)
-export const syncCanvasBinding = () => request.post('/canvas-binding/sync')
-export const browserLoginCanvasBinding = () => request.post('/canvas-binding/browser-login')
+export const syncCanvasBinding = (params = {}) => {
+  const source = params.source || 'all'
+  const forceRelogin = params.forceRelogin === true
+  const debugRaw = params.debugRaw === true
+  return request.post(
+    `/canvas-binding/sync?source=${encodeURIComponent(source)}&forceRelogin=${forceRelogin}&debugRaw=${debugRaw}`,
+    {},
+    { timeout: 180000 }
+  )
+}
+export const browserLoginCanvasBinding = () => request.post('/canvas-binding/browser-login', {}, { timeout: 180000 })
 export const disconnectCanvasBinding = () => request.delete('/canvas-binding')

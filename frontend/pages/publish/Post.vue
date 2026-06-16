@@ -1,23 +1,31 @@
 <template>
   <view class="publish-page">
-    <!-- 顶部导航 -->
+    <view class="page-glow page-glow-left"></view>
+    <view class="page-glow page-glow-right"></view>
+
     <view class="nav-header">
-      <text class="close-btn" @click="goBack">×</text>
-      <text class="nav-title">发布帖子</text>
-      <view class="placeholder"></view>
+      <view class="nav-btn" @click="goBack">‹</view>
+      <view class="nav-copy">
+        <text class="nav-kicker">Post Studio</text>
+        <text class="nav-title">发一条校园内容</text>
+      </view>
+      <view class="nav-btn ghost" @click="handlePublish" :class="{ disabled: !canPublish }">发布</view>
     </view>
 
-    <!-- 话题选择区域 -->
-    <view class="topic-section">
-      <view class="topic-header" @click="toggleTopicPanel">
-        <text class="topic-title">选择话题</text>
-        <view class="topic-hint">
-          <text>选择合适的话题会有更多围观哦~</text>
-          <text class="arrow" :class="{ expanded: showTopicPanel }">∧</text>
+    <view class="intro-card">
+      <text class="intro-title">今天想分享什么？</text>
+      <text class="intro-desc">先选主题，再把正文、图片和附加信息整理成一条完整内容。</text>
+    </view>
+
+    <view class="section-card">
+      <view class="section-head" @click="toggleTopicPanel">
+        <view>
+          <text class="section-title">选择分区</text>
+          <text class="section-tip">选一个更适合内容被发现的分类</text>
         </view>
+        <text class="section-arrow" :class="{ expanded: showTopicPanel }">⌄</text>
       </view>
 
-      <!-- 话题标签列表 -->
       <view v-show="showTopicPanel" class="topic-list">
         <view
           v-for="topic in topicList"
@@ -26,37 +34,44 @@
           :class="{ active: selectedTopic === topic.id }"
           @click="selectTopic(topic)"
         >
-          <text v-if="topic.icon" class="topic-icon">{{ topic.icon }}</text>
           <text>{{ topic.name }}</text>
         </view>
       </view>
 
-      <!-- 已选话题显示 -->
       <view v-if="selectedTopic && !showTopicPanel" class="selected-topic">
         <view class="topic-tag active">
-          <text v-if="selectedTopicData.icon" class="topic-icon">{{ selectedTopicData.icon }}</text>
           <text>{{ selectedTopicData.name }}</text>
           <text class="remove-btn" @click.stop="clearTopic">×</text>
         </view>
       </view>
     </view>
 
-    <!-- 内容输入区域 -->
-    <view class="content-section">
+    <view class="section-card">
+      <view class="section-head static">
+        <view>
+          <text class="section-title">正文内容</text>
+          <text class="section-tip">默认标题栏已去掉，用这里作为唯一主标题区</text>
+        </view>
+      </view>
+
       <textarea
         class="content-input"
         v-model="content"
-        placeholder="尽情发言吧..."
+        placeholder="分享你的日常、经验、求助或见闻..."
         :maxlength="2000"
         auto-height
       ></textarea>
-
-      <!-- 字数统计 -->
       <view class="word-count">{{ content.length }}/2000</view>
     </view>
 
-    <!-- 图片上传区域 -->
-    <view class="image-section">
+    <view class="section-card">
+      <view class="section-head static">
+        <view>
+          <text class="section-title">图片素材</text>
+          <text class="section-tip">最多 9 张，首图会优先作为内容封面感知</text>
+        </view>
+      </view>
+
       <view class="image-list">
         <view
           v-for="(img, index) in imageList"
@@ -67,7 +82,6 @@
           <view class="delete-btn" @click="deleteImage(index)">×</view>
         </view>
 
-        <!-- 添加图片按钮 -->
         <view
           v-if="imageList.length < 9"
           class="add-image-btn"
@@ -76,16 +90,19 @@
           <text class="add-icon">+</text>
         </view>
       </view>
-      <text class="image-tip">最多上传9张图片</text>
     </view>
 
-    <!-- 闲置商品信息（仅闲置话题显示） -->
-    <view v-if="selectedTopic === 1" class="product-section">
-      <view class="section-title">商品信息</view>
+    <view v-if="selectedTopic === 1" class="section-card">
+      <view class="section-head static">
+        <view>
+          <text class="section-title">商品信息</text>
+          <text class="section-tip">二手交易内容建议补全价格和交易方式</text>
+        </view>
+      </view>
 
       <view class="form-item">
         <text class="label">价格</text>
-        <view class="price-input-wrapper">
+        <view class="input-shell">
           <text class="price-symbol">¥</text>
           <input
             class="price-input"
@@ -96,7 +113,7 @@
         </view>
       </view>
 
-      <view class="form-item">
+      <view class="form-item vertical">
         <text class="label">交易方式</text>
         <view class="trade-options">
           <view
@@ -124,9 +141,14 @@
       </view>
     </view>
 
-    <!-- 投票选项区域（仅投票话题显示） -->
-    <view v-if="selectedTopic === 4" class="vote-section">
-      <view class="section-title">投票选项</view>
+    <view v-if="selectedTopic === 4" class="section-card">
+      <view class="section-head static">
+        <view>
+          <text class="section-title">投票选项</text>
+          <text class="section-tip">至少保留两个有效选项，最多 6 项</text>
+        </view>
+      </view>
+
       <view v-for="(option, index) in voteOptions" :key="index" class="vote-option-item">
         <input
           class="vote-input"
@@ -144,588 +166,589 @@
       </view>
     </view>
 
-    <!-- 更多设置 -->
-    <view class="more-settings">
+    <view class="section-card compact">
       <view class="setting-item">
-        <text class="setting-label">匿名发布</text>
+        <view>
+          <text class="section-title small">匿名发布</text>
+          <text class="section-tip">开启后仅隐藏发布者昵称</text>
+        </view>
         <view class="switch" :class="{ active: isAnonymous }" @click="toggleAnonymous">
           <view class="switch-dot"></view>
         </view>
       </view>
     </view>
 
-    <!-- 底部发布按钮 -->
+    <view class="bottom-space"></view>
+
     <view class="bottom-bar">
       <view
         class="publish-btn"
         :class="{ disabled: !canPublish }"
         @click="handlePublish"
       >
-        发布
+        {{ publishing ? '发布中...' : '确认发布' }}
       </view>
     </view>
   </view>
 </template>
 
 <script>
-import { publishPost } from '../../api/post.js';
-import { getCategories } from '@/api/index.js';
-// 引入图片上传接口（需确保该接口已定义）
-import { commonApi } from '@/api/common.js';
+import { publishPost } from '../../api/post.js'
+import { getCategories } from '@/api/index.js'
+import { commonApi } from '@/api/common.js'
 
 export default {
   name: 'PublishPost',
   data() {
     return {
-      // 话题相关
       showTopicPanel: true,
       selectedTopic: null,
       topicList: [],
-      
-      // 内容相关
       content: '',
       imageList: [],
-      
-      // 闲置商品相关
       price: '',
       tradeMethod: 'face',
-      
-      // 投票相关
       voteOptions: ['', ''],
-      
-      // 设置
       isAnonymous: false,
-      
-      // 发布状态
       publishing: false
-    };
+    }
   },
   async mounted() {
     try {
-      const res = await getCategories();
+      const res = await getCategories()
       if (res.code === 200) {
-        const list = Array.isArray(res.data?.list) ? res.data.list : [];
-        this.topicList = list;
+        const list = Array.isArray(res.data?.list) ? res.data.list : []
+        this.topicList = list
       }
     } catch (error) {
-      console.error('获取话题列表失败:', error);
-      uni.showToast({ title: '获取话题失败', icon: 'none' });
+      console.error('获取话题列表失败:', error)
+      uni.showToast({ title: '获取话题失败', icon: 'none' })
     }
   },
   computed: {
-    // 已选话题数据
     selectedTopicData() {
-      return this.topicList.find(t => t.id === this.selectedTopic) || {};
+      return this.topicList.find(t => t.id === this.selectedTopic) || {}
     },
-    
-    // 是否可以发布
     canPublish() {
-      // 必须有内容或图片
-      const hasContent = this.content.trim().length > 0 || this.imageList.length > 0;
-      
-      // 如果是闲置，必须有价格
+      const hasContent = this.content.trim().length > 0 || this.imageList.length > 0
+
       if (this.selectedTopic === 1 && !this.price) {
-        return false;
+        return false
       }
-      
-      // 如果是投票，必须至少有2个非空选项
+
       if (this.selectedTopic === 4) {
-        const validOptions = this.voteOptions.filter(o => o.trim());
+        const validOptions = this.voteOptions.filter(o => o.trim())
         if (validOptions.length < 2) {
-          return false;
+          return false
         }
       }
-      
-      return hasContent && !this.publishing;
+
+      return hasContent && !this.publishing
     }
   },
   methods: {
-    // 返回上一页
     goBack() {
-      uni.navigateBack();
+      uni.navigateBack()
     },
-    
-    // 切换话题面板展开/收起
     toggleTopicPanel() {
-      this.showTopicPanel = !this.showTopicPanel;
+      this.showTopicPanel = !this.showTopicPanel
     },
-    
-    // 选择话题
     selectTopic(topic) {
-      this.selectedTopic = topic.id;
-      this.showTopicPanel = false;
+      this.selectedTopic = topic.id
+      this.showTopicPanel = false
     },
-    
-    // 清除已选话题
     clearTopic() {
-      this.selectedTopic = null;
-      this.showTopicPanel = true;
+      this.selectedTopic = null
+      this.showTopicPanel = true
     },
-    
-    // 选择图片
     chooseImage() {
-      const remainCount = 9 - this.imageList.length;
-      
+      const remainCount = 9 - this.imageList.length
+
       uni.chooseImage({
         count: remainCount,
         sizeType: ['compressed'],
         sourceType: ['album', 'camera'],
         success: (res) => {
-          this.imageList = [...this.imageList, ...res.tempFilePaths];
+          this.imageList = [...this.imageList, ...res.tempFilePaths]
         },
         fail: () => {
-          uni.showToast({ title: '选择图片失败', icon: 'none' });
+          uni.showToast({ title: '选择图片失败', icon: 'none' })
         }
-      });
+      })
     },
-    
-    // 预览图片
     previewImage(index) {
       uni.previewImage({
         current: index,
         urls: this.imageList
-      });
+      })
     },
-    
-    // 删除图片
     deleteImage(index) {
-      this.imageList.splice(index, 1);
+      this.imageList.splice(index, 1)
     },
-    
-    // 添加投票选项
     addVoteOption() {
       if (this.voteOptions.length < 6) {
-        this.voteOptions.push('');
+        this.voteOptions.push('')
       }
     },
-    
-    // 移除投票选项
     removeVoteOption(index) {
       if (this.voteOptions.length > 2) {
-        this.voteOptions.splice(index, 1);
+        this.voteOptions.splice(index, 1)
       }
     },
-    
-    // 切换匿名发布状态
     toggleAnonymous() {
-      this.isAnonymous = !this.isAnonymous;
+      this.isAnonymous = !this.isAnonymous
     },
-    
-async uploadImages(tempFiles) {  
-  console.log('【开始上传图片】', tempFiles.length, '张')  
-    
-  const uploadPromises = tempFiles.map(file => {  
-    console.log('【上传单个文件】', file)  
-    return commonApi.uploadBatchImages(file)  
-  })  
-    
-  const results = await Promise.all(uploadPromises)  
-  console.log('【上传结果】', results)  
-    
-  // 修复响应格式解析  
-  const urls = results.map(res => {  
-    console.log('【单个响应】', res)  
-      
-    // 检查响应格式  
-    if (res.code === 200 && res.data) {  
-      // 如果data直接包含url  
-      if (res.data.url) {  
-        return res.data.url  
-      }  
-      // 如果data是url本身  
-      if (typeof res.data === 'string') {  
-        return res.data  
-      }  
-      // 如果data包含在list中  
-      if (res.data.list && res.data.list.length > 0) {  
-        return res.data.list[0].url  
-      }  
-    }  
-      
-    throw new Error('上传响应格式错误: ' + JSON.stringify(res))  
-  })  
-    
-  return urls  
-},
-    
-    // 发布帖子
-    async handlePublish() {  
-      if (!this.canPublish || this.publishing) return;  
-        
-      this.publishing = true;  
-        
-      try {  
-        // 先上传图片  
-        let uploadedImages = [];  
-        if (this.imageList.length > 0) {  
-          uploadedImages = await this.uploadImages(this.imageList);  
-        }  
-          
-        const postData = {  
-          categoryId: this.selectedTopic,  
-          topicId: this.selectedTopic,  
-          topicName: this.selectedTopicData.name,  
-          content: this.content,  
-          images: uploadedImages,  
-          isAnonymous: this.isAnonymous  
-        };  
-        
-        // 闲置商品信息
+    async uploadImages(tempFiles) {
+      const uploadPromises = tempFiles.map(file => commonApi.uploadBatchImages(file))
+      const results = await Promise.all(uploadPromises)
+
+      return results.map(res => {
+        if (res.code === 200 && res.data) {
+          if (res.data.url) return res.data.url
+          if (typeof res.data === 'string') return res.data
+          if (res.data.list && res.data.list.length > 0) {
+            return res.data.list[0].url
+          }
+        }
+        throw new Error('上传响应格式错误: ' + JSON.stringify(res))
+      })
+    },
+    async handlePublish() {
+      if (!this.canPublish || this.publishing) return
+
+      this.publishing = true
+
+      try {
+        let uploadedImages = []
+        if (this.imageList.length > 0) {
+          uploadedImages = await this.uploadImages(this.imageList)
+        }
+
+        const postData = {
+          categoryId: this.selectedTopic,
+          topicId: this.selectedTopic,
+          topicName: this.selectedTopicData.name,
+          content: this.content,
+          images: uploadedImages,
+          isAnonymous: this.isAnonymous
+        }
+
         if (this.selectedTopic === 1) {
           postData.product = {
             price: parseFloat(this.price) || 0,
             tradeMethod: this.tradeMethod
-          };
+          }
         }
-        
-        // 投票信息
+
         if (this.selectedTopic === 4) {
           postData.vote = {
             options: this.voteOptions.filter(o => o.trim())
-          };
+          }
         }
-        
-        // 调用发布接口
-        const res = await publishPost(postData);
-        
+
+        const res = await publishPost(postData)
+
         if (res.code === 200) {
-          uni.showToast({ title: '发布成功', icon: 'success' });
-          // 延迟返回
+          uni.showToast({ title: '发布成功', icon: 'success' })
           setTimeout(() => {
-            uni.navigateBack();
-          }, 1500);
+            uni.navigateBack()
+          }, 1200)
         } else {
-          uni.showToast({ title: res.message || '发布失败', icon: 'none' });
+          uni.showToast({ title: res.message || '发布失败', icon: 'none' })
         }
       } catch (error) {
-        console.error('发布失败:', error);
-        uni.showToast({ title: '发布失败，请重试', icon: 'none' });
+        console.error('发布失败:', error)
+        uni.showToast({ title: '发布失败，请重试', icon: 'none' })
       } finally {
-        this.publishing = false;
+        this.publishing = false
       }
     }
   }
-};
+}
 </script>
 
 <style scoped>
 .publish-page {
   min-height: 100vh;
-  background-color: #fff;
-  padding-bottom: 140rpx;
+  position: relative;
+  overflow: hidden;
+  padding: 24rpx 24rpx 168rpx;
+  background:
+    radial-gradient(circle at top left, rgba(186, 162, 213, 0.24), transparent 28%),
+    linear-gradient(180deg, #faf7f2 0%, #f5f1eb 100%);
 }
 
-/* 顶部导航 */
+.page-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(24rpx);
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.page-glow-left {
+  width: 240rpx;
+  height: 240rpx;
+  top: 140rpx;
+  left: -90rpx;
+  background: rgba(185, 160, 213, 0.34);
+}
+
+.page-glow-right {
+  width: 200rpx;
+  height: 200rpx;
+  top: 320rpx;
+  right: -70rpx;
+  background: rgba(140, 128, 216, 0.24);
+}
+
+.nav-header,
+.intro-card,
+.section-card,
+.bottom-bar {
+  position: relative;
+  z-index: 2;
+}
+
 .nav-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 30rpx;
-  border-bottom: 1rpx solid #eee;
-  position: sticky;
-  top: 0;
-  background-color: #fff;
-  z-index: 100;
+  margin-bottom: 20rpx;
 }
 
-.close-btn {
-  font-size: 50rpx;
-  color: #333;
-  padding: 10rpx;
-  line-height: 1;
+.nav-btn {
+  min-width: 84rpx;
+  height: 72rpx;
+  padding: 0 22rpx;
+  border-radius: 22rpx;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1rpx solid rgba(140, 128, 216, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-ink);
+  font-size: 36rpx;
+}
+
+.nav-btn.ghost {
+  font-size: 24rpx;
+  color: var(--theme-primary-deep);
+  font-weight: 700;
+}
+
+.nav-btn.disabled {
+  opacity: 0.45;
+}
+
+.nav-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nav-kicker,
+.nav-title {
+  display: block;
+}
+
+.nav-kicker {
+  font-size: 20rpx;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+  color: var(--theme-primary-deep);
+  font-weight: 700;
 }
 
 .nav-title {
-  font-size: 34rpx;
-  font-weight: bold;
-  color: #333;
+  margin-top: 6rpx;
+  font-size: 30rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
 }
 
-.placeholder {
-  width: 70rpx;
+.intro-card {
+  padding: 34rpx 32rpx;
+  border-radius: 30rpx;
+  background: var(--theme-gradient);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow);
 }
 
-/* 话题选择区域 */
-.topic-section {
-  padding: 30rpx;
-  border-bottom: 1rpx solid #f0f0f0;
+.intro-title,
+.intro-desc,
+.section-title,
+.section-tip {
+  display: block;
 }
 
-.topic-header {
+.intro-title {
+  font-size: 42rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
+}
+
+.intro-desc {
+  margin-top: 12rpx;
+  font-size: 25rpx;
+  line-height: 1.7;
+  color: #6d6582;
+}
+
+.section-card {
+  margin-top: 22rpx;
+  padding: 28rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.section-card.compact {
+  padding: 24rpx 28rpx;
+}
+
+.section-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20rpx;
 }
 
-.topic-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
+.section-head.static {
+  align-items: flex-start;
 }
 
-.topic-hint {
-  display: flex;
-  align-items: center;
-  font-size: 24rpx;
-  color: #b0dfbd;
+.section-title {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
 }
 
-.arrow {
-  margin-left: 10rpx;
+.section-title.small {
+  font-size: 28rpx;
+}
+
+.section-tip {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--theme-muted);
+}
+
+.section-arrow {
+  font-size: 30rpx;
+  color: var(--theme-muted);
   transition: transform 0.3s;
 }
 
-.arrow.expanded {
+.section-arrow.expanded {
   transform: rotate(180deg);
 }
 
 .topic-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 20rpx;
-  margin-top: 20rpx;
+  gap: 18rpx;
 }
 
 .topic-tag {
   display: flex;
   align-items: center;
-  padding: 16rpx 28rpx;
-  background-color: #f5f5f5;
-  border-radius: 30rpx;
-  font-size: 28rpx;
-  color: #666;
+  padding: 16rpx 24rpx;
+  background: rgba(140, 128, 216, 0.08);
+  border: 1rpx solid rgba(140, 128, 216, 0.08);
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  color: var(--theme-muted);
 }
 
 .topic-tag.active {
-  background-color: #E8F5E9;
-  color: #4CAF50;
-}
-
-.topic-icon {
-  margin-right: 6rpx;
+  background: var(--theme-gradient-strong);
+  color: #fff;
 }
 
 .selected-topic {
-  margin-top: 20rpx;
-}
-
-.selected-topic .topic-tag {
-  display: inline-flex;
+  margin-top: 8rpx;
 }
 
 .remove-btn {
-  margin-left: 10rpx;
+  margin-left: 12rpx;
   font-size: 28rpx;
-  color: #999;
-}
-
-/* 内容输入区域 */
-.content-section {
-  padding: 30rpx;
-  min-height: 300rpx;
 }
 
 .content-input {
   width: 100%;
-  min-height: 200rpx;
+  min-height: 240rpx;
   font-size: 30rpx;
-  color: #333;
-  line-height: 1.6;
+  color: var(--theme-ink);
+  line-height: 1.75;
 }
 
 .word-count {
   text-align: right;
-  font-size: 24rpx;
-  color: #999;
-  margin-top: 20rpx;
-}
-
-/* 图片上传区域 */
-.image-section {
-  padding: 0 30rpx 30rpx;
+  font-size: 23rpx;
+  color: var(--theme-muted);
+  margin-top: 18rpx;
 }
 
 .image-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 20rpx;
+  gap: 18rpx;
 }
 
-.image-item {
+.image-item,
+.add-image-btn {
   position: relative;
   width: 200rpx;
   height: 200rpx;
+  border-radius: 22rpx;
+  overflow: hidden;
 }
 
 .image-item image {
   width: 100%;
   height: 100%;
-  border-radius: 12rpx;
 }
 
-.image-item .delete-btn {
+.delete-btn {
   position: absolute;
-  top: -15rpx;
-  right: -15rpx;
-  width: 40rpx;
-  height: 40rpx;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  top: 12rpx;
+  right: 12rpx;
+  width: 42rpx;
+  height: 42rpx;
   border-radius: 50%;
+  background: rgba(52, 48, 48, 0.68);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
+  font-size: 24rpx;
 }
 
 .add-image-btn {
-  width: 200rpx;
-  height: 200rpx;
-  background-color: #f5f5f5;
-  border-radius: 12rpx;
+  background: rgba(140, 128, 216, 0.08);
+  border: 2rpx dashed rgba(140, 128, 216, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .add-icon {
-  font-size: 60rpx;
-  color: #ccc;
-}
-
-.image-tip {
-  font-size: 24rpx;
-  color: #999;
-  margin-top: 20rpx;
-}
-
-/* 商品信息区域 */
-.product-section,
-.vote-section {
-  padding: 30rpx;
-  border-top: 16rpx solid #f5f5f5;
-}
-
-.section-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 30rpx;
+  font-size: 56rpx;
+  color: var(--theme-primary-deep);
 }
 
 .form-item {
   display: flex;
   align-items: center;
-  margin-bottom: 30rpx;
+  margin-bottom: 24rpx;
+  gap: 18rpx;
+}
+
+.form-item.vertical {
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .label {
-  width: 140rpx;
-  font-size: 28rpx;
-  color: #666;
+  width: 120rpx;
+  font-size: 27rpx;
+  color: var(--theme-ink);
+  font-weight: 600;
 }
 
-.price-input-wrapper {
+.input-shell {
   flex: 1;
+  min-height: 84rpx;
+  padding: 0 22rpx;
+  border-radius: 20rpx;
+  background: rgba(140, 128, 216, 0.08);
   display: flex;
   align-items: center;
-  background-color: #f5f5f5;
-  border-radius: 12rpx;
-  padding: 0 20rpx;
 }
 
 .price-symbol {
-  font-size: 32rpx;
-  color: #ff6b00;
-  margin-right: 10rpx;
+  font-size: 30rpx;
+  color: #ce6f8b;
+  margin-right: 12rpx;
 }
 
 .price-input {
   flex: 1;
-  height: 80rpx;
-  font-size: 32rpx;
-  color: #ff6b00;
+  height: 84rpx;
+  font-size: 30rpx;
+  color: var(--theme-ink);
 }
 
 .trade-options {
-  flex: 1;
   display: flex;
-  gap: 20rpx;
+  flex-wrap: wrap;
+  gap: 16rpx;
 }
 
 .trade-option {
   padding: 16rpx 24rpx;
-  background-color: #f5f5f5;
-  border-radius: 12rpx;
-  font-size: 26rpx;
-  color: #666;
+  background: rgba(140, 128, 216, 0.08);
+  border-radius: 999rpx;
+  font-size: 25rpx;
+  color: var(--theme-muted);
 }
 
 .trade-option.active {
-  background-color: #E8F5E9;
-  color: #4CAF50;
+  background: var(--theme-gradient-strong);
+  color: #fff;
 }
 
-/* 投票选项 */
 .vote-option-item {
   display: flex;
   align-items: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 18rpx;
+  gap: 16rpx;
 }
 
 .vote-input {
   flex: 1;
-  height: 80rpx;
-  background-color: #f5f5f5;
-  border-radius: 12rpx;
+  height: 82rpx;
+  background: rgba(140, 128, 216, 0.08);
+  border-radius: 20rpx;
   padding: 0 20rpx;
-  font-size: 28rpx;
+  font-size: 27rpx;
 }
 
 .delete-option {
-  width: 60rpx;
+  width: 52rpx;
   text-align: center;
-  font-size: 36rpx;
-  color: #999;
+  font-size: 34rpx;
+  color: var(--theme-muted);
 }
 
 .add-option-btn {
-  padding: 20rpx;
-  text-align: center;
-  color: #4CAF50;
-  font-size: 28rpx;
-}
-
-/* 更多设置 */
-.more-settings {
-  padding: 30rpx;
-  border-top: 16rpx solid #f5f5f5;
+  padding: 18rpx 0 6rpx;
+  color: var(--theme-primary-deep);
+  font-size: 26rpx;
+  font-weight: 700;
 }
 
 .setting-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20rpx 0;
-}
-
-.setting-label {
-  font-size: 30rpx;
-  color: #333;
+  gap: 20rpx;
 }
 
 .switch {
   width: 100rpx;
   height: 56rpx;
-  background-color: #e0e0e0;
+  background-color: rgba(140, 128, 216, 0.18);
   border-radius: 28rpx;
   padding: 6rpx;
   transition: background-color 0.3s;
 }
 
 .switch.active {
-  background-color: #4CAF50;
+  background: var(--theme-gradient-strong);
 }
 
 .switch-dot {
@@ -740,32 +763,37 @@ async uploadImages(tempFiles) {
   transform: translateX(44rpx);
 }
 
-/* 底部发布按钮 */
+.bottom-space {
+  height: 20rpx;
+}
+
 .bottom-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20rpx 30rpx;
-  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
-  background-color: #fff;
-  border-top: 1rpx solid #eee;
+  padding: 18rpx 24rpx;
+  padding-bottom: calc(18rpx + env(safe-area-inset-bottom));
+  background: rgba(247, 244, 238, 0.92);
+  backdrop-filter: blur(18rpx);
+  -webkit-backdrop-filter: blur(18rpx);
 }
 
 .publish-btn {
-  height: 90rpx;
-  background: linear-gradient(135deg, #b0dfbd, #bdeeca);
+  height: 92rpx;
+  background: var(--theme-gradient-strong);
   color: #fff;
-  font-size: 32rpx;
-  font-weight: bold;
-  border-radius: 45rpx;
+  font-size: 30rpx;
+  font-weight: 800;
+  border-radius: 999rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 12rpx 28rpx rgba(121, 110, 176, 0.24);
 }
 
 .publish-btn.disabled {
-  background: #ccc;
-  pointer-events: none; /* 禁用点击 */
+  opacity: 0.42;
+  pointer-events: none;
 }
 </style>

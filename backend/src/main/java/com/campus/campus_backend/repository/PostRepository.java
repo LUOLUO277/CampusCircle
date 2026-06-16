@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import java.time.LocalDateTime;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByUserUsernameOrderByCreatedAtDesc(String username, Pageable pageable);
@@ -24,4 +25,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findPostsByUserId(@Param("userId") Long userId, Pageable pageable);
 
     List<Post> findByUserId(Long userId);
+
+    @Query("""
+            select p from Post p
+            where p.createdAt >= :startTime
+              and p.status = 0
+            order by p.createdAt desc
+            """)
+    List<Post> findRecentForAi(@Param("startTime") LocalDateTime startTime, Pageable pageable);
 }

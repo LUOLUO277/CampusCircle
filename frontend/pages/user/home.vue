@@ -1,9 +1,16 @@
 <template>
   <view class="user-home-container">
-    <view class="header-bg"></view>
+    <view class="page-glow page-glow-left"></view>
+    <view class="page-glow page-glow-right"></view>
 
-    <view class="profile-card">
-      <view class="top-row">
+    <view class="custom-nav">
+      <view class="nav-btn" @click="goBack">‹</view>
+      <text class="nav-title">用户主页</text>
+      <view class="nav-placeholder"></view>
+    </view>
+
+    <view class="profile-hero">
+      <view class="hero-top">
         <view class="avatar-wrapper">
           <image
             v-if="userInfo?.avatarUrl"
@@ -11,28 +18,22 @@
             mode="aspectFill"
             class="avatar-img"
           />
-          <view v-else class="avatar-placeholder">👤</view>
+          <view v-else class="avatar-placeholder">◌</view>
         </view>
 
-        <view class="btn-group">
-          <button
-            class="action-btn follow-style"
-            :class="{ 'is-followed': userInfo?.isFollowing }"
-            @click="handleFollow"
-          >
-            {{ userInfo?.isFollowing ? '已关注' : '+ 关注' }}
-          </button>
-        </view>
+        <button
+          class="action-btn follow-style"
+          :class="{ 'is-followed': userInfo?.isFollowing }"
+          @click="handleFollow"
+        >
+          {{ userInfo?.isFollowing ? '已关注' : '+ 关注' }}
+        </button>
       </view>
 
       <view v-if="userInfo" class="info-block">
-        <view class="name-row">
-          <text class="name">{{ userInfo.nickname }}</text>
-        </view>
-        <view v-if="userInfo.school" class="school-row">
-          <text class="school-tag">{{ userInfo.school }}</text>
-        </view>
-        <view class="bio">{{ userInfo.bio || '这个人很懒，什么都没有留下。' }}</view>
+        <text class="name">{{ userInfo.nickname }}</text>
+        <text v-if="userInfo.school" class="school-tag">{{ userInfo.school }}</text>
+        <text class="bio">{{ userInfo.bio || '这个用户还没有留下更多自我介绍。' }}</text>
       </view>
 
       <view v-if="userInfo" class="stats-row">
@@ -52,14 +53,17 @@
     </view>
 
     <view class="module-status">
-      <text class="status-title">当前版本说明</text>
-      <text class="status-desc">私聊与消息会话模块已下线，当前仅保留用户资料、关注关系与公开内容浏览。</text>
+      <text class="status-title">公开主页</text>
+      <text class="status-desc">你可以在这里查看对方公开资料、关注关系和最新动态。</text>
     </view>
 
     <view class="posts-section">
       <view class="section-header">
-        <text class="section-title">Ta 的动态</text>
-        <text v-if="userPosts.length" class="post-count">({{ userPosts.length }})</text>
+        <view>
+          <text class="section-title">Ta 的动态</text>
+          <text class="section-subtitle">最近公开发布的内容会显示在这里</text>
+        </view>
+        <text v-if="userPosts.length" class="post-count">{{ userPosts.length }}</text>
       </view>
 
       <view v-if="loadingPosts" class="loading-box">
@@ -77,7 +81,7 @@
           class="post-item"
           @click="goToPostDetail(post.id)"
         >
-          <view class="post-text">{{ post.content }}</view>
+          <text class="post-text">{{ post.content }}</text>
 
           <view v-if="post.images && post.images.length > 0" class="post-media">
             <image :src="post.images[0]" mode="aspectFill" class="media-img" />
@@ -95,7 +99,7 @@
       </view>
     </view>
 
-    <view style="height: 40rpx;"></view>
+    <view class="page-bottom-space"></view>
   </view>
 </template>
 
@@ -170,6 +174,10 @@ const goToPostDetail = (id) => {
   uni.navigateTo({ url: `/pages/post/detail?id=${id}` })
 }
 
+const goBack = () => {
+  uni.navigateBack()
+}
+
 const formatDate = (ts) => {
   if (!ts) return ''
   return `${ts}`.split('T')[0]
@@ -179,44 +187,98 @@ const formatDate = (ts) => {
 <style scoped>
 .user-home-container {
   min-height: 100vh;
-  background: #f5f5f5;
-}
-
-.header-bg {
-  height: 260rpx;
-  background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
-}
-
-.profile-card {
   position: relative;
-  margin: -100rpx 30rpx 30rpx;
-  background: #fff;
-  border-radius: 24rpx;
-  padding: 30rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  padding: 24rpx 24rpx 56rpx;
+  background:
+    radial-gradient(circle at top left, rgba(186, 162, 213, 0.24), transparent 28%),
+    linear-gradient(180deg, #faf7f2 0%, #f5f1eb 100%);
 }
 
-.top-row {
+.page-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(24rpx);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.page-glow-left {
+  width: 240rpx;
+  height: 240rpx;
+  top: 120rpx;
+  left: -100rpx;
+  background: rgba(185, 160, 213, 0.34);
+}
+
+.page-glow-right {
+  width: 210rpx;
+  height: 210rpx;
+  top: 340rpx;
+  right: -80rpx;
+  background: rgba(140, 128, 216, 0.24);
+}
+
+.custom-nav,
+.profile-hero,
+.module-status,
+.posts-section {
+  position: relative;
+  z-index: 2;
+}
+
+.custom-nav {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
-  height: 80rpx;
-  position: relative;
+  justify-content: space-between;
   margin-bottom: 20rpx;
 }
 
+.nav-btn,
+.nav-placeholder {
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.nav-btn {
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1rpx solid rgba(140, 128, 216, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-ink);
+  font-size: 36rpx;
+}
+
+.nav-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--theme-ink);
+}
+
+.profile-hero {
+  padding: 34rpx;
+  border-radius: 34rpx;
+  background: var(--theme-gradient);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow);
+}
+
+.hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
 .avatar-wrapper {
-  position: absolute;
-  left: 0;
-  bottom: 0;
   width: 150rpx;
   height: 150rpx;
   border-radius: 50%;
-  border: 6rpx solid #fff;
+  border: 6rpx solid rgba(255, 255, 255, 0.96);
   background: #fff;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10rpx 24rpx rgba(121, 110, 176, 0.18);
   overflow: hidden;
-  z-index: 10;
 }
 
 .avatar-img {
@@ -227,75 +289,78 @@ const formatDate = (ts) => {
 .avatar-placeholder {
   width: 100%;
   height: 100%;
-  background: #eee;
+  background: var(--theme-gradient-strong);
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 60rpx;
-}
-
-.btn-group {
-  display: flex;
-  gap: 20rpx;
+  color: #fff;
+  font-size: 56rpx;
 }
 
 .action-btn {
   margin: 0;
-  height: 64rpx;
-  line-height: 60rpx;
-  border-radius: 32rpx;
+  min-width: 168rpx;
+  height: 68rpx;
+  line-height: 64rpx;
+  border-radius: 999rpx;
   font-size: 26rpx;
-  padding: 0 36rpx;
+  padding: 0 32rpx;
   box-sizing: border-box;
+  border: none;
 }
 
 .follow-style {
-  background: #52c41a;
+  background: var(--theme-ink);
   color: #fff;
-  border: 2rpx solid #52c41a;
 }
 
 .follow-style.is-followed {
-  background: #f5f5f5;
-  color: #999;
-  border-color: #ddd;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--theme-muted);
 }
 
 .info-block {
-  margin-top: 20rpx;
-  margin-bottom: 30rpx;
+  margin-top: 26rpx;
+}
+
+.name,
+.school-tag,
+.bio,
+.status-title,
+.status-desc,
+.section-title,
+.section-subtitle {
+  display: block;
 }
 
 .name {
-  font-size: 40rpx;
-  font-weight: bold;
-  color: #333;
-}
-
-.school-row {
-  margin-top: 10rpx;
+  font-size: 42rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
 }
 
 .school-tag {
-  font-size: 22rpx;
-  color: #1890ff;
-  background: #e6f7ff;
-  padding: 4rpx 12rpx;
-  border-radius: 6rpx;
-  border: 1rpx solid #91d5ff;
+  margin-top: 12rpx;
+  display: inline-block;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--theme-primary-deep);
+  font-size: 23rpx;
 }
 
 .bio {
   margin-top: 16rpx;
-  font-size: 28rpx;
-  color: #666;
-  line-height: 1.4;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: #6d6582;
 }
 
 .stats-row {
   display: flex;
-  border-top: 1rpx solid #eee;
-  padding-top: 20rpx;
+  margin-top: 28rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid rgba(140, 128, 216, 0.12);
 }
 
 .stat {
@@ -305,67 +370,85 @@ const formatDate = (ts) => {
 
 .stat .num {
   display: block;
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: 34rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
 }
 
 .stat .label {
-  font-size: 24rpx;
-  color: #999;
+  display: block;
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: var(--theme-muted);
 }
 
 .module-status {
-  margin: 0 30rpx 30rpx;
+  margin-top: 22rpx;
   padding: 28rpx 30rpx;
-  background: #fffbe6;
-  border: 1rpx solid #ffe58f;
-  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
+  border-radius: 28rpx;
+  box-shadow: var(--theme-shadow-soft);
 }
 
 .status-title {
-  display: block;
   font-size: 28rpx;
-  font-weight: 600;
-  color: #ad6800;
+  font-weight: 700;
+  color: var(--theme-primary-deep);
 }
 
 .status-desc {
-  display: block;
   margin-top: 10rpx;
   font-size: 24rpx;
-  color: #8c6d1f;
-  line-height: 1.6;
+  line-height: 1.7;
+  color: #716a85;
 }
 
 .posts-section {
-  margin: 0 30rpx;
-  background: #fff;
-  border-radius: 24rpx;
+  margin-top: 22rpx;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1rpx solid rgba(140, 128, 216, 0.1);
+  border-radius: 30rpx;
   padding: 30rpx;
+  box-shadow: var(--theme-shadow-soft);
 }
 
 .section-header {
-  margin-bottom: 20rpx;
+  margin-bottom: 18rpx;
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
 }
 
 .section-title {
   font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  margin-right: 10rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
+}
+
+.section-subtitle {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: var(--theme-muted);
 }
 
 .post-count {
-  color: #999;
+  min-width: 58rpx;
+  height: 58rpx;
+  border-radius: 50%;
+  background: rgba(140, 128, 216, 0.1);
+  color: var(--theme-primary-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 24rpx;
+  font-weight: 700;
 }
 
 .post-item {
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid rgba(140, 128, 216, 0.08);
 }
 
 .post-item:last-child {
@@ -374,8 +457,8 @@ const formatDate = (ts) => {
 
 .post-text {
   font-size: 28rpx;
-  color: #333;
-  line-height: 1.5;
+  color: var(--theme-ink);
+  line-height: 1.65;
   margin-bottom: 16rpx;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -385,47 +468,59 @@ const formatDate = (ts) => {
 
 .post-media {
   position: relative;
-  width: 200rpx;
-  height: 160rpx;
+  width: 220rpx;
+  height: 168rpx;
   margin-bottom: 16rpx;
-  border-radius: 8rpx;
+  border-radius: 18rpx;
   overflow: hidden;
 }
 
 .media-img {
   width: 100%;
   height: 100%;
-  background: #f0f0f0;
+  background: #f0eef8;
 }
 
 .media-count {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  right: 12rpx;
+  bottom: 12rpx;
+  min-width: 52rpx;
+  height: 36rpx;
+  padding: 0 10rpx;
+  border-radius: 999rpx;
+  background: rgba(52, 48, 48, 0.68);
   color: #fff;
   font-size: 20rpx;
-  padding: 2rpx 8rpx;
-  border-top-left-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .post-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16rpx;
   font-size: 22rpx;
-  color: #ccc;
+  color: var(--theme-muted);
 }
 
-.post-stats .stat-icon {
-  margin-left: 20rpx;
+.post-stats {
+  display: flex;
+  gap: 18rpx;
+  flex-wrap: wrap;
 }
 
 .loading-box,
 .empty-tip {
   text-align: center;
   padding: 60rpx 0;
-  color: #999;
+  color: var(--theme-muted);
   font-size: 26rpx;
+}
+
+.page-bottom-space {
+  height: 24rpx;
 }
 </style>

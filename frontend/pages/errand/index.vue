@@ -1,8 +1,8 @@
 <template>
   <view class="offline-page">
     <view class="card">
-      <text class="title">跑腿模块已下线</text>
-      <text class="desc">当前版本聚焦校园信息订阅中心，跑腿功能已从演示主线中移除，页面与接口调用已暂停。</text>
+      <text class="title">跑腿功能升级中</text>
+      <text class="desc">当前暂不支持跑腿发布与接单，后续恢复后可直接在此页面使用。</text>
       <button class="primary-btn" @click="goHome">返回首页</button>
     </view>
   </view>

@@ -1,192 +1,254 @@
-{
-  "pages": [
-    {
-      "path": "pages/index/index",
-      "style": {
-        "navigationBarTitleText": "首页",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/post/detail",
-      "style": {
-        "navigationBarTitleText": "帖子详情",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/errand/index",
-      "style": {
-        "navigationStyle": "custom",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/publish/index",
-      "style": {
-        "navigationBarTitleText": "发布内容"
-      }
-    },
-    {
-      "path": "pages/publish/Post",
-      "style": {
-        "navigationBarTitleText": "发布帖子"
-      }
-    },
-    {
-      "path": "pages/hot-posts/list",
-      "style": {
-        "navigationBarTitleText": "热门帖子",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/message/index",
-      "style": {
-        "navigationBarTitleText": "消息列表",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/chat/detail",
-      "style": {
-        "navigationBarTitleText": "聊天详情",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/profile/index",
-      "style": {
-        "navigationBarTitleText": "个人中心",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/login/index",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/profile/edit",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/profile/canvas-binding",
-      "style": {
-        "navigationBarTitleText": "连接 Canvas"
-      }
-    },
-    {
-      "path": "pages/errand/publish",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/errand/detail",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/profile/my-errands",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/profile/follow-list",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/user/home",
-      "style": {
-        "navigationBarTitleText": "用户主页"
-      }
-    },
-    {
-      "path": "pages/profile/my-post",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/profile/my-collection",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/admin/report-list",
-      "style": {
-        "navigationStyle": "custom",
-        "enablePullDownRefresh": false
-      }
-    },
-    {
-      "path": "pages/info-center/index",
-      "style": {
-        "navigationBarTitleText": "信息订阅中心",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/info-center/subscriptions",
-      "style": {
-        "navigationBarTitleText": "订阅管理"
-      }
-    },
-    {
-      "path": "pages/info-center/detail",
-      "style": {
-        "navigationBarTitleText": "通知详情"
-      }
-    },
-    {
-      "path": "pages/admin/info-center",
-      "style": {
-        "navigationBarTitleText": "信息订阅后台"
-      }
-    },
-    {
-      "path": "pages/login/register",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "注册账号"
-      }
-    }
-  ],
-  "globalStyle": {
-    "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "校园信息订阅中心",
-    "navigationBarBackgroundColor": "#F8F8F8",
-    "backgroundColor": "#F8F8F8"
-  },
-  "tabBar": {
-    "color": "#7A7E83",
-    "selectedColor": "#52C41A",
-    "borderStyle": "black",
-    "backgroundColor": "#ffffff",
-    "list": [
-      {
-        "pagePath": "pages/index/index",
-        "text": "首页"
-      },
-      {
-        "pagePath": "pages/info-center/index",
-        "text": "订阅"
-      },
-      {
-        "pagePath": "pages/profile/index",
-        "text": "我的"
-      }
-    ]
-  }
+﻿{
+    "pages":  [
+                  {
+                      "path":  "pages/index/index",
+                      "style":  {
+                                    "navigationBarTitleText":  "首页",
+                                    "enablePullDownRefresh":  true,
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/post/detail",
+                      "style":  {
+                                    "navigationBarTitleText":  "帖子详情",
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/errand/index",
+                      "style":  {
+                                    "navigationStyle":  "custom",
+                                    "enablePullDownRefresh":  true
+                                }
+                  },
+                  {
+                      "path":  "pages/publish/index",
+                      "style":  {
+                                    "navigationBarTitleText":  "发布内容",
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/publish/Post",
+                      "style":  {
+                                    "navigationBarTitleText":  "发布帖子",
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/hot-posts/list",
+                      "style":  {
+                                    "navigationBarTitleText":  "热门帖子",
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/message/index",
+                      "style":  {
+                                    "navigationBarTitleText":  "消息列表",
+                                    "enablePullDownRefresh":  true
+                                }
+                  },
+                  {
+                      "path":  "pages/chat/detail",
+                      "style":  {
+                                    "navigationBarTitleText":  "聊天详情",
+                                    "enablePullDownRefresh":  true,
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/profile/index",
+                      "style":  {
+                                    "navigationBarTitleText":  "个人中心",
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/login/index",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/profile/edit",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/profile/canvas-binding",
+                      "style":  {
+                                    "navigationBarTitleText":  "连接 Canvas"
+                                }
+                  },
+                  {
+                      "path":  "pages/errand/publish",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/errand/detail",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/profile/my-errands",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/profile/follow-list",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/user/home",
+                      "style":  {
+                                    "navigationBarTitleText":  "用户主页",
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/profile/my-post",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/profile/my-collection",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/admin/report-list",
+                      "style":  {
+                                    "navigationStyle":  "custom",
+                                    "enablePullDownRefresh":  false
+                                }
+                  },
+                  {
+                      "path":  "pages/ai-assistant/index",
+                      "style":  {
+                                    "navigationBarTitleText":  "AI 助手"
+                                }
+                  },
+                  {
+                      "path":  "pages/course-circle/index",
+                      "style":  {
+                                    "navigationStyle":  "custom",
+                                    "enablePullDownRefresh":  true
+                                }
+                  },
+                  {
+                      "path":  "pages/course-circle/detail",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/course-circle/question-create",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/course-circle/question-detail",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/course-circle/experience-create",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/course-circle/review-create",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/course-circle/course-create",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/course-circle/experience-detail",
+                      "style":  {
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/info-center/index",
+                      "style":  {
+                                    "navigationBarTitleText":  "信息订阅中心",
+                                    "navigationStyle":  "custom"
+                                }
+                  },
+                  {
+                      "path":  "pages/info-center/subscriptions",
+                      "style":  {
+                                    "navigationBarTitleText":  "订阅管理"
+                                }
+                  },
+                  {
+                      "path":  "pages/info-center/detail",
+                      "style":  {
+                                    "navigationBarTitleText":  "通知详情"
+                                }
+                  },
+                  {
+                      "path":  "pages/admin/info-center",
+                      "style":  {
+                                    "navigationBarTitleText":  "信息订阅后台"
+                                }
+                  },
+                  {
+                      "path":  "pages/login/register",
+                      "style":  {
+                                    "navigationStyle":  "custom",
+                                    "navigationBarTitleText":  "注册账号"
+                                }
+                  }
+              ],
+    "globalStyle":  {
+                        "navigationBarTextStyle":  "black",
+                        "navigationBarTitleText":  "校园信息订阅中心",
+                        "navigationBarBackgroundColor":  "#F8F8F8",
+                        "backgroundColor":  "#F8F8F8"
+                    },
+    "tabBar":  {
+                   "color":  "#7A7E83",
+                   "selectedColor":  "#52C41A",
+                   "borderStyle":  "black",
+                   "backgroundColor":  "#ffffff",
+                   "list":  [
+                                {
+                                    "pagePath":  "pages/index/index",
+                                    "text":  "首页"
+                                },
+                                {
+                                    "pagePath":  "pages/course-circle/index",
+                                    "text":  "课程圈子"
+                                },
+                                {
+                                    "pagePath":  "pages/info-center/index",
+                                    "text":  "订阅"
+                                },
+                                {
+                                    "pagePath":  "pages/profile/index",
+                                    "text":  "我的"
+                                }
+                            ]
+               }
 }

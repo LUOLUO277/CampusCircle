@@ -65,6 +65,7 @@ public class InfoCenterService {
                         .collect(Collectors.toSet());
         return sources.stream()
                 .filter(source -> !CanvasBindingService.PERSONAL_CANVAS_SOURCE_KEY.equals(source.getSourceKey()))
+                .filter(source -> !CanvasBindingService.PERSONAL_TONGJI_ANNOUNCEMENT_SOURCE_KEY.equals(source.getSourceKey()))
                 .map(source -> toSourceMap(source, subscribedIds.contains(source.getId())))
                 .toList();
     }
@@ -240,6 +241,7 @@ public class InfoCenterService {
         source.setFetchStrategy(request.getFetchStrategy());
         source.setFetchConfigJson(request.getFetchConfigJson());
         source.setStatus(request.getStatus() == null || request.getStatus().isBlank() ? "ACTIVE" : request.getStatus());
+        noticeIngestionService.normalizeSourceForStorage(source);
         subscriptionSourceRepository.save(source);
         return toSourceMap(source, false);
     }
@@ -285,6 +287,8 @@ public class InfoCenterService {
     @Transactional
     public Map<String, Object> fetchSource(Long sourceId) {
         SubscriptionSource source = requireSource(sourceId);
+        noticeIngestionService.normalizeSourceForStorage(source);
+        subscriptionSourceRepository.save(source);
         NoticeFetcher fetcher = fetchers.stream().filter(item -> item.supports(source)).findFirst()
                 .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST.getCode(), "No fetcher for source"));
         return noticeIngestionService.ingest(source, fetcher.fetch(source));
@@ -310,6 +314,7 @@ public class InfoCenterService {
     public List<SubscriptionSource> listActiveSources() {
         return subscriptionSourceRepository.findByStatusOrderByUpdatedAtDesc("ACTIVE").stream()
                 .filter(source -> !CanvasBindingService.PERSONAL_CANVAS_SOURCE_KEY.equals(source.getSourceKey()))
+                .filter(source -> !CanvasBindingService.PERSONAL_TONGJI_ANNOUNCEMENT_SOURCE_KEY.equals(source.getSourceKey()))
                 .toList();
     }
 

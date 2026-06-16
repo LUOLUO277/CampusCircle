@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface AggregatedNoticeRepository extends JpaRepository<AggregatedNotice, Long> {
     Optional<AggregatedNotice> findBySourceIdAndExternalId(Long sourceId, String externalId);
@@ -19,6 +20,39 @@ public interface AggregatedNoticeRepository extends JpaRepository<AggregatedNoti
     Page<AggregatedNotice> findByStatusOrderByPublishTimeDescCreatedAtDesc(String status, Pageable pageable);
     Page<AggregatedNotice> findBySourceIdInAndStatusOrderByPublishTimeDescCreatedAtDesc(Collection<Long> sourceIds, String status, Pageable pageable);
     List<AggregatedNotice> findTop20ByStatusOrderByPublishTimeDescCreatedAtDesc(String status);
+    List<AggregatedNotice> findTop20ByStatusAndCategoryIsNullOrderByPublishTimeDescCreatedAtDesc(String status);
+
+    @Query("""
+            select n from AggregatedNotice n
+            where n.status = :status
+              and (n.publishTime is null or n.publishTime >= :startTime)
+            order by n.publishTime desc, n.createdAt desc
+            """)
+    List<AggregatedNotice> findRecentForAi(@Param("status") String status,
+                                           @Param("startTime") LocalDateTime startTime,
+                                           Pageable pageable);
+
+    @Query("""
+            select n from AggregatedNotice n
+            where n.status = :status and (n.category is null or trim(n.category) = '')
+            order by n.publishTime desc, n.createdAt desc
+            """)
+    List<AggregatedNotice> findTopNForAiClassify(@Param("status") String status, Pageable pageable);
+
+    default List<AggregatedNotice> findTopNForAiClassify(String status, int limit) {
+        return findTopNForAiClassify(status, Pageable.ofSize(limit));
+    }
+
+    @Query("""
+            select n from AggregatedNotice n
+            where n.status = :status
+            order by n.publishTime desc, n.createdAt desc
+            """)
+    List<AggregatedNotice> findTopNByStatusOrderByPublishTimeDescCreatedAtDesc(@Param("status") String status, Pageable pageable);
+
+    default List<AggregatedNotice> findTopNByStatusOrderByPublishTimeDescCreatedAtDesc(String status, int limit) {
+        return findTopNByStatusOrderByPublishTimeDescCreatedAtDesc(status, Pageable.ofSize(limit));
+    }
 
     @Query("""
             select n from AggregatedNotice n

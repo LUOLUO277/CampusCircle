@@ -1,62 +1,67 @@
 <template>
-  <view class="register-container">
-	  <view class="nav-back" @click="goBack">
-	    <text>←</text> <!-- 这里可以用 "←" 或者 "✕" -->
-	  </view>
-    <view class="header">
-      <text class="title">注册账号</text>
-      <text class="sub-title">加入码住校园圈，开启校园生活</text>
+  <view class="auth-page">
+    <view class="page-glow page-glow-left"></view>
+    <view class="page-glow page-glow-right"></view>
+
+    <view class="topbar">
+      <view class="back-btn" @click="goBack">‹</view>
+      <text class="topbar-title">注册</text>
+      <view class="back-placeholder"></view>
     </view>
 
-    <view class="form-box">
-      <!-- 用户名 -->
+    <view class="hero-card">
+      <text class="hero-badge">New Account</text>
+      <text class="hero-title">创建你的校园账号</text>
+      <text class="hero-subtitle">完善基础信息后即可加入校园内容社区</text>
+    </view>
+
+    <view class="form-card">
       <view class="input-item">
         <text class="label">用户名</text>
-        <input 
-          class="input" 
-          v-model="form.username" 
-          placeholder="请输入用户名" 
+        <input
+          class="input"
+          v-model="form.username"
+          placeholder="请输入用户名"
+          placeholder-class="input-placeholder"
         />
       </view>
 
-      <!-- 邮箱 -->
       <view class="input-item">
         <text class="label">校园邮箱</text>
-        <input 
-          class="input" 
-          v-model="form.email" 
-          placeholder="test@univ.edu.cn" 
-        />
-      </view>
-      
-      <!-- 密码 -->
-      <view class="input-item">
-        <text class="label">设置密码</text>
-        <input 
-          class="input" 
-          v-model="form.password" 
-          password 
-          placeholder="请输入密码" 
+        <input
+          class="input"
+          v-model="form.email"
+          placeholder="test@univ.edu.cn"
+          placeholder-class="input-placeholder"
         />
       </view>
 
-      <!-- 确认密码 -->
+      <view class="input-item">
+        <text class="label">密码</text>
+        <input
+          class="input"
+          v-model="form.password"
+          password
+          placeholder="请输入密码"
+          placeholder-class="input-placeholder"
+        />
+      </view>
+
       <view class="input-item">
         <text class="label">确认密码</text>
-        <input 
-          class="input" 
-          v-model="form.confirmPassword" 
-          password 
-          placeholder="请再次输入密码" 
+        <input
+          class="input"
+          v-model="form.confirmPassword"
+          password
+          placeholder="请再次输入密码"
+          placeholder-class="input-placeholder"
         />
       </view>
 
-      <button class="submit-btn" :loading="loading" @click="handleRegister">
-        立即注册
-      </button>
+      <button class="submit-btn" :loading="loading" @click="handleRegister">立即注册</button>
 
-      <view class="actions">
-        <text class="link" @click="goLogin">已有账号? 去登录</text>
+      <view class="footer-actions">
+        <text class="link" @click="goLogin">已有账号？去登录</text>
       </view>
     </view>
   </view>
@@ -76,7 +81,6 @@ const form = reactive({
 })
 
 const handleRegister = async () => {
-  // 1. 基础校验
   if (!form.username || !form.email || !form.password) {
     return uni.showToast({ title: '请补全注册信息', icon: 'none' })
   }
@@ -86,30 +90,25 @@ const handleRegister = async () => {
 
   loading.value = true
   try {
-    // 2. 调用真实 API
     const res = await userApi.register(form)
-    
     if (res.code === 200) {
       uni.showToast({ title: '注册成功', icon: 'success' })
-      // 延迟跳转回登录页
       setTimeout(() => {
         uni.navigateBack()
-      }, 1500)
+      }, 1000)
     }
   } catch (error) {
-    // 错误已经在 request.js 中通过 toast 提示了，这里可以不做处理或打日志
     console.error('注册失败', error)
   } finally {
     loading.value = false
   }
 }
+
 const goBack = () => {
   const pages = getCurrentPages()
-  // 如果页面栈大于1，说明有上一页，直接返回
   if (pages.length > 1) {
     uni.navigateBack()
   } else {
-    // 如果没有上一页（比如直接跳转过来的），回首页
     uni.switchTab({ url: '/pages/index/index' })
   }
 }
@@ -120,39 +119,172 @@ const goLogin = () => {
 </script>
 
 <style scoped>
-.register-container { padding: 60rpx; min-height: 100vh; background: #fff; }
-.header { margin-top: 80rpx; margin-bottom: 60rpx; }
-.title { font-size: 48rpx; font-weight: bold; display: block; margin-bottom: 20rpx; color: #333; }
-.sub-title { font-size: 28rpx; color: #999; }
+.auth-page {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  padding: 28rpx 24rpx 60rpx;
+  background:
+    radial-gradient(circle at top left, rgba(186, 162, 213, 0.24), transparent 28%),
+    linear-gradient(180deg, #faf7f2 0%, #f5f1eb 100%);
+}
 
-.input-item { margin-bottom: 30rpx; border-bottom: 1rpx solid #eee; padding-bottom: 10rpx; }
-.label { font-size: 28rpx; color: #333; margin-bottom: 10rpx; display: block; font-weight: bold; }
-.input { height: 80rpx; font-size: 32rpx; }
+.page-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(24rpx);
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.page-glow-left {
+  width: 260rpx;
+  height: 260rpx;
+  top: 100rpx;
+  left: -90rpx;
+  background: rgba(185, 160, 213, 0.34);
+}
+
+.page-glow-right {
+  width: 220rpx;
+  height: 220rpx;
+  top: 380rpx;
+  right: -70rpx;
+  background: rgba(140, 128, 216, 0.24);
+}
+
+.topbar,
+.hero-card,
+.form-card {
+  position: relative;
+  z-index: 2;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.back-btn,
+.back-placeholder {
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.back-btn {
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1rpx solid rgba(140, 128, 216, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-ink);
+  font-size: 44rpx;
+}
+
+.topbar-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--theme-ink);
+}
+
+.hero-card {
+  padding: 38rpx 32rpx;
+  border-radius: 34rpx;
+  background: var(--theme-gradient);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow);
+}
+
+.hero-badge,
+.hero-title,
+.hero-subtitle {
+  display: block;
+}
+
+.hero-badge {
+  font-size: 22rpx;
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
+  color: var(--theme-primary-deep);
+  font-weight: 700;
+}
+
+.hero-title {
+  margin-top: 14rpx;
+  font-size: 48rpx;
+  line-height: 1.22;
+  font-weight: 800;
+  color: var(--theme-ink);
+}
+
+.hero-subtitle {
+  margin-top: 14rpx;
+  font-size: 25rpx;
+  line-height: 1.65;
+  color: #6d6582;
+}
+
+.form-card {
+  margin-top: 24rpx;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow-soft);
+  border-radius: 30rpx;
+  padding: 20rpx 30rpx 34rpx;
+}
+
+.input-item {
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid rgba(140, 128, 216, 0.1);
+}
+
+.input-item:last-of-type {
+  border-bottom: none;
+}
+
+.label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--theme-muted);
+  margin-bottom: 10rpx;
+}
+
+.input {
+  height: 72rpx;
+  font-size: 30rpx;
+  color: var(--theme-ink);
+}
+
+.input-placeholder {
+  color: #a09aaf;
+}
 
 .submit-btn {
-  background: #1890FF; /* 注册按钮用蓝色区分一下 */
-  color: #fff; border-radius: 50rpx; 
-  margin-top: 60rpx; font-size: 32rpx; font-weight: bold;
-}
-.submit-btn:active { opacity: 0.9; }
-
-.actions { display: flex; justify-content: center; margin-top: 30rpx; font-size: 28rpx; color: #666; }
-.link { color: #1890FF; font-weight: bold; }
-.nav-back {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 100;
-  /* 避开手机状态栏高度，再加一点间距 */
-  padding-top: calc(var(--status-bar-height) + 20rpx);
-  padding-left: 30rpx;
-  padding-right: 30rpx;
-  padding-bottom: 20rpx;
+  margin-top: 34rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  border-radius: 999rpx;
+  background: var(--theme-ink);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 700;
+  border: none;
 }
 
-.nav-back text {
-  font-size: 44rpx; /* 图标大小 */
-  color: #333;      /* 图标颜色，如果是深色背景改为 #fff */
-  font-weight: bold;
+.submit-btn::after {
+  border: none;
+}
+
+.footer-actions {
+  margin-top: 24rpx;
+  text-align: center;
+}
+
+.link {
+  color: var(--theme-primary-deep);
+  font-size: 26rpx;
 }
 </style>

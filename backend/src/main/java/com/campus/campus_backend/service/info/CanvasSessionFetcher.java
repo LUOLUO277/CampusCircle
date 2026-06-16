@@ -83,13 +83,16 @@ public class CanvasSessionFetcher {
             }
             List<Map<String, Object>> items = remoteNoticeSupport.parseJsonArray(result.body);
             List<RawNoticeItem> notices = new ArrayList<>();
+            Map<String, Integer> typeStats = new LinkedHashMap<>();
+            if (!items.isEmpty()) {
+                log.info("CANVAS_STREAM_SAMPLE {}", items.get(0));
+            }
             for (Map<String, Object> item : items) {
                 String type = remoteNoticeSupport.stringValue(item.get("type"));
-                // 只取公告和讨论
-                if (!items.isEmpty()) {
-                    log.info("CANVAS_STREAM_SAMPLE {}", items.get(0));
-                 }
-                if (!"Announcement".equals(type) && !"DiscussionTopic".equals(type)) {
+                String normalizedType = type == null || type.isBlank() ? "<empty>" : type;
+                typeStats.merge(normalizedType, 1, Integer::sum);
+                // Include personal notifications in activity stream.
+                if (!"Announcement".equals(type) && !"DiscussionTopic".equals(type) && !"Message".equals(type)) {
                     continue;
                 }
                 String id = remoteNoticeSupport.stringValue(item.get("id"));
@@ -110,6 +113,7 @@ public class CanvasSessionFetcher {
                         .tags(List.of("Canvas", "课程"))
                         .build());
             }
+            diagnostics.add("activity-stream types=" + typeStats);
             diagnostics.add("activity-stream parsed=" + notices.size());
             return notices;
         } catch (Exception e) {
@@ -179,11 +183,19 @@ public class CanvasSessionFetcher {
     }
 
     public LoginResult login(UserCanvasBinding binding) {
+        return login(binding, false);
+    }
+
+    public LoginResult login(UserCanvasBinding binding, boolean forceRelogin) {
         String baseUrl = trimTrailingSlash(binding.getBaseUrl());
         List<String> diagnostics = new ArrayList<>();
         CookieJar cookies = new CookieJar();
 
-        if (binding.getSessionCookiesJson() != null && !binding.getSessionCookiesJson().isBlank()) {
+        if (forceRelogin) {
+            diagnostics.add("force-relogin=true");
+        }
+
+        if (!forceRelogin && binding.getSessionCookiesJson() != null && !binding.getSessionCookiesJson().isBlank()) {
             seedCookiesFromBinding(binding.getSessionCookiesJson(), cookies, diagnostics);
             try {
                 HttpResult probe = get(baseUrl, Map.of("Referer", baseUrl), cookies);

@@ -8,7 +8,7 @@
         <view class="brand-icon">◌</view>
         <view class="brand-copy">
           <text class="brand-name">逛校园</text>
-          <text class="brand-sub">遇见你的校园圈层</text>
+          <text class="brand-sub">分享日常，发现同好</text>
         </view>
       </view>
       <view class="header-pill" @click="switchTab('info')">订阅中心</view>
@@ -19,8 +19,8 @@
     <view class="hero-card">
       <view class="hero-copy">
         <text class="hero-badge">Campus Social</text>
-        <text class="hero-title">分享日常 发现同好</text>
-        <text class="hero-subtitle">用更柔和的视觉，把帖子、活动和校园信息放进同一个入口。</text>
+        <text class="hero-title">把校园生活整理成你自己的内容场</text>
+        <text class="hero-subtitle">发现校园热点、快速进入常用功能，随时浏览你关注的内容。</text>
       </view>
       <view class="hero-ornament">
         <view class="hero-orb hero-orb-main"></view>
@@ -63,6 +63,26 @@
           <text class="entry-icon">◌</text>
           <text class="entry-label">我的主页</text>
         </view>
+      </view>
+    </view>
+
+    <view class="action-strip">
+      <view class="action-card" @click="handleCheckIn">
+        <view class="action-copy">
+          <text class="action-title">每日签到</text>
+          <text class="action-desc">{{ isCheckedIn ? '今天已完成签到' : '去签到领积分' }}</text>
+          <view class="action-go">{{ isCheckedIn ? 'DONE' : 'GO' }}</view>
+        </view>
+        <view class="action-illus">✦</view>
+      </view>
+
+      <view class="action-card alt" @click="goAiAssistant">
+        <view class="action-copy">
+          <text class="action-title">马上发布</text>
+          <text class="action-desc">把灵感整理成一条校园内容</text>
+          <view class="action-go dark">ASK AI</view>
+        </view>
+        <view class="action-illus">AI</view>
       </view>
     </view>
 
@@ -112,7 +132,7 @@
 import TabBar from '@/components/TabBar.vue'
 import PostCard from '@/components/PostCard.vue'
 import HotTopics from '@/components/HotTopics.vue'
-import CategoryNav from '@/components/CategoryNav.vue'
+import CategoryNav from '@/components/Categorynav.vue'
 import { userApi } from '@/api/user.js'
 import { setPostTop, likePost } from '@/api/post.js'
 import { getHotTopics, getCategories, getPosts, searchPosts } from '@/api/index.js'
@@ -133,6 +153,7 @@ export default {
       categories: [],
       posts: [],
       keyword: '',
+      isCheckedIn: false,
       page: 1,
       pageSize: 10,
       hasMore: true
@@ -143,15 +164,53 @@ export default {
   },
   onShow() {
     uni.hideTabBar({ animation: false })
+    this.loadCheckInStatus()
     this.loadPosts(true)
   },
   onPageScroll(e) {
-    this.isNavFixed = e.scrollTop > 500
+    this.isNavFixed = e.scrollTop > 560
   },
   methods: {
     async loadTopics() {
       const res = await getHotTopics()
       if (res.code === 200) this.topics = res.data
+    },
+    async loadCheckInStatus() {
+      try {
+        const res = await userApi.getCheckInStatus()
+        if (res.code === 200) {
+          this.isCheckedIn = !!res.data?.checkedIn
+        }
+      } catch (error) {
+        this.isCheckedIn = false
+      }
+    },
+    async handleCheckIn() {
+      try {
+        const userRes = await userApi.getUserInfo()
+        if (userRes.code !== 200) {
+          uni.navigateTo({ url: '/pages/login/index' })
+          return
+        }
+      } catch (error) {
+        uni.navigateTo({ url: '/pages/login/index' })
+        return
+      }
+
+      if (this.isCheckedIn) {
+        uni.showToast({ title: '今天已经签到过了', icon: 'none' })
+        return
+      }
+
+      try {
+        const res = await userApi.checkIn()
+        if (res.code === 200) {
+          this.isCheckedIn = true
+          uni.showToast({ title: '签到成功', icon: 'success' })
+        }
+      } catch (error) {
+        uni.showToast({ title: '签到失败', icon: 'none' })
+      }
     },
     async handleTopClick(post) {
       if (post.isTop) {
@@ -255,6 +314,9 @@ export default {
     },
     goPublish() {
       uni.navigateTo({ url: '/pages/publish/index' })
+    },
+    goAiAssistant() {
+      uni.navigateTo({ url: '/pages/ai-assistant/index' })
     },
     handleUserClick(post) {
       if (!post?.userId) return
@@ -577,6 +639,103 @@ export default {
   font-size: 24rpx;
   color: var(--theme-ink);
   font-weight: 600;
+}
+
+.action-strip {
+  margin: 0 30rpx 24rpx;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.action-card {
+  min-height: 176rpx;
+  padding: 24rpx 22rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow-soft);
+  display: flex;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.action-card.alt {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(241, 235, 252, 0.9));
+}
+
+.action-card.alt .action-title {
+  font-size: 0;
+}
+
+.action-card.alt .action-title::after {
+  content: 'AI 助手';
+  font-size: 30rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
+}
+
+.action-card.alt .action-desc {
+  font-size: 0;
+}
+
+.action-card.alt .action-desc::after {
+  content: '通知问答与帖子智能搜索';
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--theme-muted);
+}
+
+.action-copy {
+  flex: 1;
+}
+
+.action-title,
+.action-desc {
+  display: block;
+}
+
+.action-title {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
+}
+
+.action-desc {
+  margin-top: 10rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--theme-muted);
+}
+
+.action-go {
+  margin-top: 18rpx;
+  width: 92rpx;
+  height: 42rpx;
+  border-radius: 999rpx;
+  background: var(--theme-gradient-strong);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+.action-go.dark {
+  background: var(--theme-ink);
+}
+
+.action-illus {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 22rpx;
+  background: rgba(140, 128, 216, 0.12);
+  color: var(--theme-primary-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
 }
 
 .stream-head {

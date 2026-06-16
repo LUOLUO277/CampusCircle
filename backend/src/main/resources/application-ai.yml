@@ -1,0 +1,5 @@
+llm:
+  provider: openai-compatible
+  base-url: ${LLM_BASE_URL:https://ai.dianhuomao.shop/v1}
+  api-key: ${LLM_API_KEY:sk-rH7GKOri7wFZMYEZcteiuzliyhZReZoeSFKgLtqI0uHP5yfq}
+  model: ${LLM_MODEL:【J-C】gemini-2.5-pro（3）}

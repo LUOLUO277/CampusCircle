@@ -21,6 +21,15 @@ import java.util.regex.Pattern;
 public class NoticeIngestionService {
     private static final Pattern DATETIME_PATTERN = Pattern.compile("(20\\d{2}-\\d{2}-\\d{2})(?:\\s+(\\d{2}:\\d{2}))?");
     private static final Pattern URL_PATTERN = Pattern.compile("(https?://\\S+)");
+    public static final int MAX_SOURCE_CONFIG_LEN = 20000;
+    public static final int MAX_SOURCE_KEYWORDS_LEN = 500;
+    public static final int MAX_SOURCE_URL_LEN = 500;
+    public static final int MAX_SOURCE_NAME_LEN = 100;
+    public static final int MAX_SOURCE_TYPE_LEN = 20;
+    public static final int MAX_SOURCE_FETCH_STRATEGY_LEN = 50;
+    public static final int MAX_SOURCE_STATUS_LEN = 20;
+    private static final int MAX_CONTENT_SNAPSHOT_LEN = 20000;
+    private static final int MAX_JSON_FIELD_LEN = 50000;
     private final AggregatedNoticeRepository aggregatedNoticeRepository;
     private final SubscriptionSourceRepository subscriptionSourceRepository;
     private final SourceFetchLogRepository sourceFetchLogRepository;
@@ -60,12 +69,13 @@ public class NoticeIngestionService {
                 notice.setSourceName(source.getName());
                 notice.setOriginalUrl(item.getOriginalUrl());
                 notice.setPublishTime(item.getPublishTime() != null ? item.getPublishTime() : LocalDateTime.now());
-                notice.setContentSnapshot(item.getContent());
+                String sanitizedContent = truncate(item.getContent(), MAX_CONTENT_SNAPSHOT_LEN);
+                notice.setContentSnapshot(sanitizedContent);
                 notice.setSummary(buildSummary(item.getContent(), item.getTitle()));
-                notice.setDeadline(extractDeadline(item.getContent()));
-                notice.setTargetAudience(extractAudience(item.getContent()));
-                notice.setLocation(extractLocation(item.getContent()));
-                notice.setActionLinksJson(writeJson(extractLinks(item.getContent(), item.getOriginalUrl())));
+                notice.setDeadline(extractDeadline(sanitizedContent));
+                notice.setTargetAudience(extractAudience(sanitizedContent));
+                notice.setLocation(extractLocation(sanitizedContent));
+                notice.setActionLinksJson(writeJson(extractLinks(sanitizedContent, item.getOriginalUrl())));
                 notice.setTagsJson(writeJson(extractTags(item)));
                 notice.setRawPayloadJson(writeJson(item.getRawPayload()));
                 notice.setExtractionStatus("DONE");
@@ -79,6 +89,7 @@ public class NoticeIngestionService {
 
         source.setLastFetchedAt(LocalDateTime.now());
         source.setLastFetchStatus(failureCount > 0 ? "PARTIAL_SUCCESS" : "SUCCESS");
+        normalizeSourceForStorage(source);
         subscriptionSourceRepository.save(source);
 
         SourceFetchLog log = new SourceFetchLog();
@@ -96,24 +107,39 @@ public class NoticeIngestionService {
             String location, String contentSnapshot, List<String> tags, List<Map<String, String>> actionLinks) {
         AggregatedNotice notice = aggregatedNoticeRepository.findBySourceIdAndExternalId(source.getId(), externalId)
                 .orElseGet(AggregatedNotice::new);
+        String sanitizedContent = truncate(contentSnapshot, MAX_CONTENT_SNAPSHOT_LEN);
         notice.setSource(source);
         notice.setExternalId(externalId);
-        notice.setTitle(title);
-        notice.setSummary(defaultIfBlank(summary, buildSummary(contentSnapshot, title)));
-        notice.setCategory(defaultIfBlank(category, inferCategory(contentSnapshot, title)));
+        notice.setTitle(truncate(title, 255));
+        notice.setSummary(truncate(defaultIfBlank(summary, buildSummary(sanitizedContent, title)), 500));
+        notice.setCategory(truncate(defaultIfBlank(category, inferCategory(sanitizedContent, title)), 50));
         notice.setSourceName(source.getName());
-        notice.setOriginalUrl(originalUrl);
+        notice.setOriginalUrl(truncate(originalUrl, 500));
         notice.setPublishTime(publishTime != null ? publishTime : LocalDateTime.now());
         notice.setDeadline(deadline);
-        notice.setTargetAudience(targetAudience);
-        notice.setLocation(location);
+        notice.setTargetAudience(truncate(targetAudience, 255));
+        notice.setLocation(truncate(location, 255));
         notice.setActionLinksJson(writeJson(actionLinks));
         notice.setTagsJson(writeJson(tags));
-        notice.setContentSnapshot(contentSnapshot);
+        notice.setContentSnapshot(sanitizedContent);
         notice.setRawPayloadJson(writeJson(Map.of("manual", true)));
         notice.setExtractionStatus("MANUAL");
         notice.setStatus("ONLINE");
         return aggregatedNoticeRepository.save(notice);
+    }
+
+    public void normalizeSourceForStorage(SubscriptionSource source) {
+        if (source == null) {
+            return;
+        }
+        source.setName(truncate(source.getName(), MAX_SOURCE_NAME_LEN));
+        source.setType(truncate(source.getType(), MAX_SOURCE_TYPE_LEN));
+        source.setSourceUrl(truncate(source.getSourceUrl(), MAX_SOURCE_URL_LEN));
+        source.setSearchKeywords(truncate(source.getSearchKeywords(), MAX_SOURCE_KEYWORDS_LEN));
+        source.setFetchStrategy(truncate(source.getFetchStrategy(), MAX_SOURCE_FETCH_STRATEGY_LEN));
+        source.setFetchConfigJson(truncate(source.getFetchConfigJson(), MAX_SOURCE_CONFIG_LEN));
+        source.setStatus(truncate(source.getStatus(), MAX_SOURCE_STATUS_LEN));
+        source.setLastFetchStatus(truncate(source.getLastFetchStatus(), 50));
     }
 
     private String buildSummary(String content, String title) {
@@ -230,10 +256,17 @@ public class NoticeIngestionService {
 
     private String writeJson(Object value) {
         try {
-            return objectMapper.writeValueAsString(value);
+            return truncate(objectMapper.writeValueAsString(value), MAX_JSON_FIELD_LEN);
         } catch (JsonProcessingException e) {
             return "[]";
         }
+    }
+
+    private String truncate(String value, int maxLen) {
+        if (value == null || value.length() <= maxLen) {
+            return value;
+        }
+        return value.substring(0, maxLen);
     }
 
     private String defaultIfBlank(String value, String fallback) {

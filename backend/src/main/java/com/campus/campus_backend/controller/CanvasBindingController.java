@@ -8,6 +8,8 @@ import com.campus.campus_backend.dto.info.UpsertCanvasBindingRequest;
 import com.campus.campus_backend.repository.UserRepository;
 import com.campus.campus_backend.service.info.CanvasBindingService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/canvas-binding")
 public class CanvasBindingController {
+    private static final Logger log = LoggerFactory.getLogger(CanvasBindingController.class);
     private final CanvasBindingService canvasBindingService;
     private final UserRepository userRepository;
 
@@ -35,8 +38,15 @@ public class CanvasBindingController {
     }
 
     @PostMapping("/sync")
-    public Result<Object> sync(@AuthenticationPrincipal UserDetails principal) {
-        return Result.ok(canvasBindingService.sync(requireUser(principal)));
+    public Result<Object> sync(
+            @RequestParam(value = "source", defaultValue = "all") String source,
+            @RequestParam(value = "forceRelogin", defaultValue = "false") boolean forceRelogin,
+            @RequestParam(value = "debugRaw", defaultValue = "false") boolean debugRaw,
+            @AuthenticationPrincipal UserDetails principal) {
+        User user = requireUser(principal);
+        log.error("SYNC_ENTRY userId={} source={} forceRelogin={} debugRaw={}",
+                user.getId(), source, forceRelogin, debugRaw);
+        return Result.ok(canvasBindingService.sync(user, source, forceRelogin, debugRaw));
     }
 
     @PostMapping("/browser-login")
