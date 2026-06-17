@@ -8,6 +8,7 @@ import com.campus.campus_backend.dto.info.CreateNoticeCommentRequest;
 import com.campus.campus_backend.dto.info.UpdateSubscriptionKeywordsRequest;
 import com.campus.campus_backend.repository.UserRepository;
 import com.campus.campus_backend.service.info.InfoCenterService;
+import com.campus.campus_backend.service.info.NoticeCompletionService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -17,10 +18,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api")
 public class InfoCenterController {
     private final InfoCenterService infoCenterService;
+    private final NoticeCompletionService noticeCompletionService;
     private final UserRepository userRepository;
 
-    public InfoCenterController(InfoCenterService infoCenterService, UserRepository userRepository) {
+    public InfoCenterController(InfoCenterService infoCenterService,
+            NoticeCompletionService noticeCompletionService,
+            UserRepository userRepository) {
         this.infoCenterService = infoCenterService;
+        this.noticeCompletionService = noticeCompletionService;
         this.userRepository = userRepository;
     }
 
@@ -64,16 +69,46 @@ public class InfoCenterController {
             @RequestParam(required = false) Long sourceId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Boolean onlySubscribed,
+            @RequestParam(required = false) String filter,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize,
             @AuthenticationPrincipal UserDetails principal) {
-        return Result.ok(infoCenterService.listNotices(optionalUser(principal), category, sourceId, keyword, onlySubscribed,
+        return Result.ok(infoCenterService.listNotices(optionalUser(principal), category, sourceId, keyword, onlySubscribed, filter,
                 page, pageSize));
     }
 
     @GetMapping("/info-center/notices/{id}")
     public Result<Object> noticeDetail(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
         return Result.ok(infoCenterService.getNoticeDetail(id, optionalUser(principal)));
+    }
+
+    @PostMapping("/notices/{id}/complete")
+    public Result<Object> completeNotice(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
+        return Result.ok(noticeCompletionService.markCompleted(id, requireUser(principal)));
+    }
+
+    @DeleteMapping("/notices/{id}/complete")
+    public Result<Object> uncompleteNotice(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
+        return Result.ok(noticeCompletionService.unmarkCompleted(id, requireUser(principal)));
+    }
+
+    @GetMapping("/notices/{id}/status")
+    public Result<Object> noticeStatus(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
+        return Result.ok(noticeCompletionService.getStatus(id, requireUser(principal)));
+    }
+
+    @PostMapping("/notices/deadline/rebuild")
+    public Result<Object> rebuildDeadlines(@AuthenticationPrincipal UserDetails principal) {
+        User user = requireUser(principal);
+        if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
+            throw new BizException(ErrorCode.FORBIDDEN);
+        }
+        return Result.ok(infoCenterService.rebuildNoticeDeadlines());
+    }
+
+    @PostMapping("/notices/{id}/deadline/extract")
+    public Result<Object> extractDeadline(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
+        return Result.ok(infoCenterService.extractNoticeDeadline(id, optionalUser(principal)));
     }
 
     @GetMapping("/info-center/notices/{id}/comments")

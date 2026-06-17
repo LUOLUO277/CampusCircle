@@ -3,6 +3,7 @@ package com.campus.campus_backend.service.info;
 import com.campus.campus_backend.domain.AggregatedNotice;
 import com.campus.campus_backend.domain.SourceFetchLog;
 import com.campus.campus_backend.domain.SubscriptionSource;
+import com.campus.campus_backend.dto.info.DeadlineExtractionResult;
 import com.campus.campus_backend.repository.AggregatedNoticeRepository;
 import com.campus.campus_backend.repository.SourceFetchLogRepository;
 import com.campus.campus_backend.repository.SubscriptionSourceRepository;
@@ -12,14 +13,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
 public class NoticeIngestionService {
-    private static final Pattern DATETIME_PATTERN = Pattern.compile("(20\\d{2}-\\d{2}-\\d{2})(?:\\s+(\\d{2}:\\d{2}))?");
     private static final Pattern URL_PATTERN = Pattern.compile("(https?://\\S+)");
     public static final int MAX_SOURCE_CONFIG_LEN = 20000;
     public static final int MAX_SOURCE_KEYWORDS_LEN = 500;
@@ -30,19 +29,23 @@ public class NoticeIngestionService {
     public static final int MAX_SOURCE_STATUS_LEN = 20;
     private static final int MAX_CONTENT_SNAPSHOT_LEN = 20000;
     private static final int MAX_JSON_FIELD_LEN = 50000;
+
     private final AggregatedNoticeRepository aggregatedNoticeRepository;
     private final SubscriptionSourceRepository subscriptionSourceRepository;
     private final SourceFetchLogRepository sourceFetchLogRepository;
     private final ObjectMapper objectMapper;
+    private final DeadlineExtractionService deadlineExtractionService;
 
     public NoticeIngestionService(AggregatedNoticeRepository aggregatedNoticeRepository,
             SubscriptionSourceRepository subscriptionSourceRepository,
             SourceFetchLogRepository sourceFetchLogRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            DeadlineExtractionService deadlineExtractionService) {
         this.aggregatedNoticeRepository = aggregatedNoticeRepository;
         this.subscriptionSourceRepository = subscriptionSourceRepository;
         this.sourceFetchLogRepository = sourceFetchLogRepository;
         this.objectMapper = objectMapper;
+        this.deadlineExtractionService = deadlineExtractionService;
     }
 
     @Transactional
@@ -51,7 +54,8 @@ public class NoticeIngestionService {
     }
 
     @Transactional
-    public Map<String, Object> ingest(SubscriptionSource source, com.campus.campus_backend.domain.User ownerUser, List<RawNoticeItem> items) {
+    public Map<String, Object> ingest(SubscriptionSource source, com.campus.campus_backend.domain.User ownerUser,
+            List<RawNoticeItem> items) {
         int successCount = 0;
         int failureCount = 0;
         for (RawNoticeItem item : items) {
@@ -64,17 +68,17 @@ public class NoticeIngestionService {
                 notice.setSource(source);
                 notice.setOwnerUser(ownerUser);
                 notice.setExternalId(item.getExternalId());
-                notice.setTitle(item.getTitle());
-                notice.setCategory(defaultIfBlank(item.getCategory(), inferCategory(item.getContent(), item.getTitle())));
+                notice.setTitle(truncate(item.getTitle(), 255));
+                notice.setCategory(truncate(defaultIfBlank(item.getCategory(), inferCategory(item.getContent(), item.getTitle())), 50));
                 notice.setSourceName(source.getName());
-                notice.setOriginalUrl(item.getOriginalUrl());
+                notice.setOriginalUrl(truncate(item.getOriginalUrl(), 500));
                 notice.setPublishTime(item.getPublishTime() != null ? item.getPublishTime() : LocalDateTime.now());
                 String sanitizedContent = truncate(item.getContent(), MAX_CONTENT_SNAPSHOT_LEN);
                 notice.setContentSnapshot(sanitizedContent);
-                notice.setSummary(buildSummary(item.getContent(), item.getTitle()));
-                notice.setDeadline(extractDeadline(sanitizedContent));
-                notice.setTargetAudience(extractAudience(sanitizedContent));
-                notice.setLocation(extractLocation(sanitizedContent));
+                notice.setSummary(truncate(buildSummary(item.getContent(), item.getTitle()), 500));
+                applyExtractedDeadline(notice, item.getTitle(), notice.getSummary(), sanitizedContent, null);
+                notice.setTargetAudience(truncate(extractAudience(sanitizedContent), 255));
+                notice.setLocation(truncate(extractLocation(sanitizedContent), 255));
                 notice.setActionLinksJson(writeJson(extractLinks(sanitizedContent, item.getOriginalUrl())));
                 notice.setTagsJson(writeJson(extractTags(item)));
                 notice.setRawPayloadJson(writeJson(item.getRawPayload()));
@@ -116,15 +120,20 @@ public class NoticeIngestionService {
         notice.setSourceName(source.getName());
         notice.setOriginalUrl(truncate(originalUrl, 500));
         notice.setPublishTime(publishTime != null ? publishTime : LocalDateTime.now());
-        notice.setDeadline(deadline);
         notice.setTargetAudience(truncate(targetAudience, 255));
         notice.setLocation(truncate(location, 255));
         notice.setActionLinksJson(writeJson(actionLinks));
         notice.setTagsJson(writeJson(tags));
         notice.setContentSnapshot(sanitizedContent);
         notice.setRawPayloadJson(writeJson(Map.of("manual", true)));
-        notice.setExtractionStatus("MANUAL");
+        applyExtractedDeadline(notice, title, notice.getSummary(), sanitizedContent, deadline);
+        notice.setExtractionStatus(deadline != null ? "MANUAL" : "DONE");
         notice.setStatus("ONLINE");
+        return aggregatedNoticeRepository.save(notice);
+    }
+
+    public AggregatedNotice rebuildDeadline(AggregatedNotice notice) {
+        applyExtractedDeadline(notice, notice.getTitle(), notice.getSummary(), notice.getContentSnapshot(), null);
         return aggregatedNoticeRepository.save(notice);
     }
 
@@ -142,6 +151,20 @@ public class NoticeIngestionService {
         source.setLastFetchStatus(truncate(source.getLastFetchStatus(), 50));
     }
 
+    private void applyExtractedDeadline(AggregatedNotice notice, String title, String summary, String content,
+            LocalDateTime explicitDeadline) {
+        if (explicitDeadline != null) {
+            notice.setDeadline(explicitDeadline);
+            notice.setDeadlineSource("manual:explicit");
+            notice.setDeadlineConfidence(1.0D);
+            return;
+        }
+        DeadlineExtractionResult extracted = deadlineExtractionService.extract(title, summary, content);
+        notice.setDeadline(extracted.getDeadlineAt());
+        notice.setDeadlineSource(extracted.getSourceText());
+        notice.setDeadlineConfidence(extracted.getConfidence());
+    }
+
     private String buildSummary(String content, String title) {
         String text = defaultIfBlank(content, title);
         if (text == null) {
@@ -151,37 +174,18 @@ public class NoticeIngestionService {
         return text.length() > 120 ? text.substring(0, 120) + "..." : text;
     }
 
-    private LocalDateTime extractDeadline(String text) {
-        if (text == null) {
-            return null;
-        }
-        Matcher matcher = DATETIME_PATTERN.matcher(text);
-        while (matcher.find()) {
-            String datePart = matcher.group(1);
-            String timePart = matcher.group(2) != null ? matcher.group(2) : "23:59";
-            LocalDateTime parsed = LocalDateTime.parse(datePart + " " + timePart,
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-            if (text.contains("截止") || text.contains("前完成") || text.contains("前提交")) {
-                return parsed;
-            }
-        }
-        return null;
-    }
-
     private String extractAudience(String text) {
         if (text == null) {
             return null;
         }
         for (String marker : List.of("适用对象：", "适用对象:", "面向", "对象：", "对象:")) {
             int index = text.indexOf(marker);
-            if (index >= 0) {
-                String candidate = text.substring(index + marker.length()).trim();
-                int end = candidate.indexOf('。');
-                if (end > 0) {
-                    candidate = candidate.substring(0, end);
-                }
-                return candidate.length() > 80 ? candidate.substring(0, 80) : candidate;
+            if (index < 0) {
+                continue;
             }
+            String candidate = text.substring(index + marker.length()).trim();
+            candidate = splitOnPunctuation(candidate);
+            return candidate.length() > 80 ? candidate.substring(0, 80) : candidate;
         }
         return null;
     }
@@ -190,21 +194,27 @@ public class NoticeIngestionService {
         if (text == null) {
             return null;
         }
-        for (String marker : List.of("地点", "地点：", "地点:", "地址：", "地址:")) {
+        for (String marker : List.of("地点：", "地点:", "地址：", "地址:", "地点")) {
             int index = text.indexOf(marker);
-            if (index >= 0) {
-                String candidate = text.substring(index + marker.length()).trim();
-                int end = candidate.indexOf('，');
-                if (end < 0) {
-                    end = candidate.indexOf('。');
-                }
-                if (end > 0) {
-                    candidate = candidate.substring(0, end);
-                }
-                return candidate.length() > 80 ? candidate.substring(0, 80) : candidate;
+            if (index < 0) {
+                continue;
             }
+            String candidate = text.substring(index + marker.length()).trim();
+            candidate = splitOnPunctuation(candidate);
+            return candidate.length() > 80 ? candidate.substring(0, 80) : candidate;
         }
         return null;
+    }
+
+    private String splitOnPunctuation(String text) {
+        int end = text.length();
+        for (String separator : List.of("。", "；", ";", "\n", "，", ",")) {
+            int index = text.indexOf(separator);
+            if (index >= 0) {
+                end = Math.min(end, index);
+            }
+        }
+        return text.substring(0, end).trim();
     }
 
     private List<Map<String, String>> extractLinks(String text, String originalUrl) {
@@ -227,29 +237,35 @@ public class NoticeIngestionService {
         if (item.getTags() != null) {
             tags.addAll(item.getTags());
         }
-        String text = (defaultIfBlank(item.getTitle(), "") + " " + defaultIfBlank(item.getContent(), "")).toLowerCase();
+        String text = (defaultIfBlank(item.getTitle(), "") + " " + defaultIfBlank(item.getContent(), "")).toLowerCase(Locale.ROOT);
         if (text.contains("报名")) {
             tags.add("报名");
         }
-        if (text.contains("截止")) {
+        if (text.contains("截止") || text.contains("ddl")) {
             tags.add("截止");
         }
-        if (text.contains("活动")) {
-            tags.add("活动");
+        if (text.contains("考试")) {
+            tags.add("考试");
+        }
+        if (text.contains("项目")) {
+            tags.add("项目");
         }
         return new ArrayList<>(tags);
     }
 
     private String inferCategory(String content, String title) {
-        String text = (defaultIfBlank(title, "") + " " + defaultIfBlank(content, "")).toLowerCase();
+        String text = (defaultIfBlank(title, "") + " " + defaultIfBlank(content, "")).toLowerCase(Locale.ROOT);
         if (text.contains("截止") || text.contains("ddl")) {
             return "截止提醒";
         }
-        if (text.contains("活动")) {
-            return "活动";
-        }
         if (text.contains("报名")) {
             return "报名";
+        }
+        if (text.contains("考试")) {
+            return "考试";
+        }
+        if (text.contains("活动")) {
+            return "活动";
         }
         return "通知";
     }

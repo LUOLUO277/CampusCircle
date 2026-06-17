@@ -61,6 +61,31 @@ public interface AggregatedNoticeRepository extends JpaRepository<AggregatedNoti
             """)
     Page<AggregatedNotice> findPublicNotices(@Param("status") String status, Pageable pageable);
 
+    List<AggregatedNotice> findByStatusAndDeadlineIsNotNullOrderByDeadlineAsc(String status);
+
+    @Query("""
+            select n from AggregatedNotice n
+            where n.status = :status
+              and n.deadline is not null
+              and n.deadline <= :endTime
+              and (n.ownerUser is null or n.ownerUser.id = :userId)
+            order by n.deadline asc, n.createdAt desc
+            """)
+    List<AggregatedNotice> findVisibleDeadlineCandidates(@Param("status") String status,
+            @Param("userId") Long userId,
+            @Param("endTime") LocalDateTime endTime);
+
+    @Query("""
+            select n from AggregatedNotice n
+            where n.status = :status
+              and n.deadline is not null
+              and n.ownerUser is null
+              and n.deadline <= :endTime
+            order by n.deadline asc, n.createdAt desc
+            """)
+    List<AggregatedNotice> findPublicDeadlineCandidates(@Param("status") String status,
+            @Param("endTime") LocalDateTime endTime);
+
     @Query("""
             select n from AggregatedNotice n
             where n.status = :status and (n.ownerUser is null or n.ownerUser.id = :userId)

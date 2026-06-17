@@ -1,9 +1,11 @@
 package com.campus.campus_backend.service.ai;
 
 import com.campus.campus_backend.domain.AggregatedNotice;
+import com.campus.campus_backend.domain.AiChatMessage;
 import com.campus.campus_backend.domain.Post;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.List;
 
 @Component
@@ -87,6 +89,63 @@ public class AiPromptBuilder {
                     .append("; category=").append(p.getCategory() == null ? "" : defaultText(p.getCategory().getName(), ""))
                     .append("; content=").append(defaultText(p.getContent(), ""))
                     .append("\n");
+        }
+        return sb.toString();
+    }
+
+    public String buildAiChatPrompt(String question, List<AiChatMessage> history, List<AiRagCandidate> candidates) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("""
+                你是“AI 校园信息助手”，负责基于平台内通知、帖子和课程圈子内容回答学生问题。
+                你必须遵守以下规则：
+                1. 只能依据给定候选内容回答，不要编造不存在的通知、帖子、课程、老师或截止时间。
+                2. 如果候选内容不足以支撑结论，请明确说“平台内暂未检索到足够信息”。
+                3. 回答要简洁、分点、可执行，优先总结共识，再补充细节。
+                4. 回答末尾如果引用了内容，请用 [1] [2] 这样的编号表示。
+                5. 只输出 JSON，不要输出 Markdown 代码块，不要输出额外解释。
+
+                输出 JSON 格式：
+                {
+                  "answer": "给用户展示的最终回答",
+                  "citations": [1, 2]
+                }
+                """);
+
+        sb.append("\n最近会话上下文：\n");
+        List<AiChatMessage> safeHistory = history == null ? Collections.emptyList() : history;
+        if (safeHistory.isEmpty()) {
+            sb.append("(无)\n");
+        } else {
+            for (AiChatMessage message : safeHistory.stream().skip(Math.max(0, safeHistory.size() - 8)).toList()) {
+                sb.append("- ")
+                        .append(message.getRole().name())
+                        .append(": ")
+                        .append(defaultText(message.getContent(), ""))
+                        .append("\n");
+            }
+        }
+
+        sb.append("\n用户问题：\n").append(question).append("\n");
+        sb.append("\n检索到的候选内容：\n");
+        if (candidates == null || candidates.isEmpty()) {
+            sb.append("(无候选内容)\n");
+        } else {
+            int index = 1;
+            for (AiRagCandidate candidate : candidates) {
+                sb.append("[")
+                        .append(index++)
+                        .append("] 类型: ")
+                        .append(candidate.getSourceType().name())
+                        .append("\n标题: ")
+                        .append(defaultText(candidate.getTitle(), ""))
+                        .append("\n摘要: ")
+                        .append(defaultText(candidate.getSummary(), ""))
+                        .append("\n时间: ")
+                        .append(defaultText(candidate.getPublishedAt(), ""))
+                        .append("\n详情: ")
+                        .append(defaultText(candidate.getContent(), ""))
+                        .append("\n\n");
+            }
         }
         return sb.toString();
     }

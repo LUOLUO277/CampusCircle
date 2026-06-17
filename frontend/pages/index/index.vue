@@ -86,6 +86,38 @@
       </view>
     </view>
 
+    <view class="deadline-card">
+      <view class="deadline-head">
+        <view>
+          <text class="deadline-title">近期截止提醒</text>
+          <text class="deadline-subtitle">近 7 天待处理通知与日程</text>
+        </view>
+        <text class="deadline-link" @click="goSchedulePage">我的日程</text>
+      </view>
+
+      <view v-if="remindersLoading" class="deadline-empty">加载提醒中...</view>
+      <view v-else-if="!deadlineReminders.length" class="deadline-empty">近 7 天暂无待处理事项</view>
+      <view
+        v-for="item in deadlineReminders"
+        :key="item.id"
+        class="deadline-item"
+        @click="openReminder(item)"
+      >
+        <view class="deadline-item-top">
+          <text class="deadline-item-type">{{ item.sourceType === 'NOTICE' ? '通知' : '手动日程' }}</text>
+          <text class="deadline-item-status" :class="{ expired: item.expired, soon: item.dueSoon }">
+            {{ formatReminderStatus(item) }}
+          </text>
+        </view>
+        <text class="deadline-item-title">{{ item.title }}</text>
+        <text class="deadline-item-meta">{{ item.sourceName }} · {{ formatDeadline(item.deadlineAt) }}</text>
+        <view class="deadline-item-bottom">
+          <text class="deadline-tag">{{ mapReminderType(item.type) }}</text>
+          <button class="deadline-btn" @click.stop="completeReminder(item)">标记完成</button>
+        </view>
+      </view>
+    </view>
+
     <HotTopics
       :topics="topics.slice(0, 4)"
       @topic-click="handleTopicClick"
@@ -136,6 +168,7 @@ import CategoryNav from '@/components/Categorynav.vue'
 import { userApi } from '@/api/user.js'
 import { setPostTop, likePost } from '@/api/post.js'
 import { getHotTopics, getCategories, getPosts, searchPosts } from '@/api/index.js'
+import { completeInfoNotice, completeScheduleItem, getHomeDeadlineReminders } from '@/api/info-center'
 
 export default {
   components: {
@@ -152,6 +185,8 @@ export default {
       topics: [],
       categories: [],
       posts: [],
+      deadlineReminders: [],
+      remindersLoading: false,
       keyword: '',
       isCheckedIn: false,
       page: 1,
@@ -160,12 +195,13 @@ export default {
     }
   },
   async onLoad() {
-    await Promise.all([this.loadTopics(), this.loadCategories(), this.loadPosts()])
+    await Promise.all([this.loadTopics(), this.loadCategories(), this.loadPosts(), this.loadDeadlineReminders()])
   },
   onShow() {
     uni.hideTabBar({ animation: false })
     this.loadCheckInStatus()
     this.loadPosts(true)
+    this.loadDeadlineReminders()
   },
   onPageScroll(e) {
     this.isNavFixed = e.scrollTop > 560
@@ -174,6 +210,19 @@ export default {
     async loadTopics() {
       const res = await getHotTopics()
       if (res.code === 200) this.topics = res.data
+    },
+    async loadDeadlineReminders() {
+      this.remindersLoading = true
+      try {
+        const res = await getHomeDeadlineReminders(7)
+        if (res.code === 200) {
+          this.deadlineReminders = res.data.list || []
+        }
+      } catch (error) {
+        this.deadlineReminders = []
+      } finally {
+        this.remindersLoading = false
+      }
     },
     async loadCheckInStatus() {
       try {
@@ -316,7 +365,51 @@ export default {
       uni.navigateTo({ url: '/pages/publish/index' })
     },
     goAiAssistant() {
-      uni.navigateTo({ url: '/pages/ai-assistant/index' })
+      uni.navigateTo({ url: '/pages/ai-chat/index' })
+    },
+    goSchedulePage() {
+      if (!uni.getStorageSync('token')) {
+        uni.navigateTo({ url: '/pages/login/index' })
+        return
+      }
+      uni.navigateTo({ url: '/pages/schedule/index' })
+    },
+    openReminder(item) {
+      if (item.sourceType === 'NOTICE') {
+        uni.navigateTo({ url: `/pages/info-center/detail?id=${item.sourceId}` })
+        return
+      }
+      uni.navigateTo({ url: `/pages/schedule/form?id=${item.sourceId}` })
+    },
+    async completeReminder(item) {
+      if (!uni.getStorageSync('token')) {
+        uni.navigateTo({ url: '/pages/login/index' })
+        return
+      }
+      const action = item.sourceType === 'NOTICE' ? completeInfoNotice : completeScheduleItem
+      await action(item.sourceId)
+      uni.showToast({ title: '已标记完成', icon: 'success' })
+      await this.loadDeadlineReminders()
+    },
+    formatDeadline(value) {
+      if (!value) return ''
+      return `${value}`.replace('T', ' ').slice(0, 16)
+    },
+    formatReminderStatus(item) {
+      if (item.expired) return '已过期'
+      if ((item.daysLeft || 0) <= 0) return '今天截止'
+      return `还有 ${item.daysLeft} 天`
+    },
+    mapReminderType(type) {
+      const map = {
+        ASSIGNMENT: '作业',
+        EXAM: '考试',
+        SIGNUP: '报名',
+        MEETING: '会议',
+        PROJECT: '项目',
+        OTHER: '其他'
+      }
+      return map[type] || '其他'
     },
     handleUserClick(post) {
       if (!post?.userId) return
@@ -646,6 +739,122 @@ export default {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16rpx;
+}
+
+.deadline-card {
+  margin: 0 30rpx 24rpx;
+  padding: 28rpx;
+  border-radius: 30rpx;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.deadline-head,
+.deadline-item-top,
+.deadline-item-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.deadline-title,
+.deadline-subtitle,
+.deadline-item-title,
+.deadline-item-meta,
+.deadline-item-type,
+.deadline-item-status {
+  display: block;
+}
+
+.deadline-title {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: var(--theme-ink);
+}
+
+.deadline-subtitle {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--theme-muted);
+}
+
+.deadline-link {
+  font-size: 24rpx;
+  color: var(--theme-primary-deep);
+}
+
+.deadline-empty {
+  padding: 40rpx 0 10rpx;
+  color: #64748b;
+  font-size: 24rpx;
+}
+
+.deadline-item {
+  margin-top: 18rpx;
+  padding: 22rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, rgba(243, 236, 252, 0.72), rgba(255, 255, 255, 0.96));
+  border: 1rpx solid rgba(140, 128, 216, 0.12);
+}
+
+.deadline-item-type {
+  font-size: 22rpx;
+  color: var(--theme-primary-deep);
+}
+
+.deadline-item-status {
+  font-size: 22rpx;
+  color: #475569;
+}
+
+.deadline-item-status.expired {
+  color: #dc2626;
+}
+
+.deadline-item-status.soon {
+  color: #b45309;
+}
+
+.deadline-item-title {
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.deadline-item-meta {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #64748b;
+}
+
+.deadline-item-bottom {
+  margin-top: 16rpx;
+}
+
+.deadline-tag {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(140, 128, 216, 0.12);
+  color: var(--theme-primary-deep);
+  font-size: 22rpx;
+}
+
+.deadline-btn {
+  margin: 0;
+  height: 60rpx;
+  line-height: 60rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--theme-primary-deep);
+  font-size: 24rpx;
+}
+
+.deadline-btn::after {
+  border: none;
 }
 
 .action-card {

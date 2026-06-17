@@ -10,10 +10,23 @@ export const updateSubscriptionKeywords = (sourceId, keywords = []) =>
 
 export const getInfoNotices = (params = {}) => request.get('/info-center/notices', params)
 export const getInfoNoticeDetail = (id) => request.get(`/info-center/notices/${id}`)
+export const completeInfoNotice = (id) => request.post(`/notices/${id}/complete`)
+export const uncompleteInfoNotice = (id) => request.del(`/notices/${id}/complete`)
+export const getInfoNoticeStatus = (id) => request.get(`/notices/${id}/status`)
+export const extractInfoNoticeDeadline = (id) => request.post(`/notices/${id}/deadline/extract`)
 export const getInfoNoticeComments = (id) => request.get(`/info-center/notices/${id}/comments`)
 export const createInfoNoticeComment = (id, data) => request.post(`/info-center/notices/${id}/comments`, data)
 export const deleteInfoComment = (commentId) => request.delete(`/info-center/comments/${commentId}`)
 export const likeInfoComment = (commentId) => request.post(`/info-center/comments/${commentId}/like`)
+export const getHomeDeadlineReminders = (days = 7) => request.get('/home/deadline-reminders', { days })
+
+export const getScheduleItems = (params = {}) => request.get('/schedule-items', params)
+export const getScheduleItemDetail = (id) => request.get(`/schedule-items/${id}`)
+export const createScheduleItem = (data) => request.post('/schedule-items', data)
+export const updateScheduleItem = (id, data) => request.put(`/schedule-items/${id}`, data)
+export const deleteScheduleItem = (id) => request.del(`/schedule-items/${id}`)
+export const completeScheduleItem = (id) => request.post(`/schedule-items/${id}/complete`)
+export const uncompleteScheduleItem = (id) => request.del(`/schedule-items/${id}/complete`)
 
 export const createInfoSource = (data) => request.post('/admin/info-sources', data)
 export const getAdminInfoSourceDetail = (id) => request.get(`/admin/info-sources/${id}`)

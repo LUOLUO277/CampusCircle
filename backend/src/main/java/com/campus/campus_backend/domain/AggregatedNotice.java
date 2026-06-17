@@ -52,6 +52,12 @@ public class AggregatedNotice {
     @Column
     private LocalDateTime deadline;
 
+    @Column(name = "deadline_source", length = 500)
+    private String deadlineSource;
+
+    @Column(name = "deadline_confidence")
+    private Double deadlineConfidence;
+
     @Column(name = "target_audience", length = 255)
     private String targetAudience;
 

@@ -30,6 +30,7 @@ public class InfoCenterService {
     private final SourceFetchLogRepository sourceFetchLogRepository;
     private final UserRepository userRepository;
     private final NoticeIngestionService noticeIngestionService;
+    private final NoticeCompletionService noticeCompletionService;
     private final List<NoticeFetcher> fetchers;
     private final ObjectMapper objectMapper;
 
@@ -41,6 +42,7 @@ public class InfoCenterService {
             SourceFetchLogRepository sourceFetchLogRepository,
             UserRepository userRepository,
             NoticeIngestionService noticeIngestionService,
+            NoticeCompletionService noticeCompletionService,
             List<NoticeFetcher> fetchers,
             ObjectMapper objectMapper) {
         this.subscriptionSourceRepository = subscriptionSourceRepository;
@@ -51,6 +53,7 @@ public class InfoCenterService {
         this.sourceFetchLogRepository = sourceFetchLogRepository;
         this.userRepository = userRepository;
         this.noticeIngestionService = noticeIngestionService;
+        this.noticeCompletionService = noticeCompletionService;
         this.fetchers = fetchers;
         this.objectMapper = objectMapper;
     }
@@ -130,7 +133,7 @@ public class InfoCenterService {
     }
 
     public Map<String, Object> listNotices(User user, String category, Long sourceId, String keyword,
-            Boolean onlySubscribed, int page, int pageSize) {
+            Boolean onlySubscribed, String filter, int page, int pageSize) {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), Math.max(pageSize, 1));
         List<Long> subscribedIds = user == null ? List.of()
                 : noticeSubscriptionRepository.findByUserIdAndEnabledTrue(user.getId()).stream()
@@ -147,6 +150,8 @@ public class InfoCenterService {
         } else {
             all = aggregatedNoticeRepository.findVisibleNotices("ONLINE", user.getId(), pageable).getContent();
         }
+        Map<Long, UserNoticeStatus> statusMap = user == null ? Map.of()
+                : noticeCompletionService.getStatusMap(user.getId(), all.stream().map(AggregatedNotice::getId).toList());
         List<Map<String, Object>> filtered = all.stream()
                 .filter(notice -> category == null || category.isBlank() || category.equalsIgnoreCase(notice.getCategory()))
                 .filter(notice -> sourceId == null || Objects.equals(sourceId, notice.getSource().getId()))
@@ -154,7 +159,8 @@ public class InfoCenterService {
                         || containsIgnoreCase(notice.getTitle(), keyword)
                         || containsIgnoreCase(notice.getSummary(), keyword)
                         || containsIgnoreCase(notice.getContentSnapshot(), keyword))
-                .map(notice -> toNoticeMap(notice, user, subscribedIds))
+                .filter(notice -> matchNoticeFilter(notice, statusMap.get(notice.getId()), filter))
+                .map(notice -> toNoticeMap(notice, user, subscribedIds, statusMap.get(notice.getId())))
                 .toList();
         return Map.of("list", filtered, "page", page, "pageSize", pageSize, "hasMore", filtered.size() >= pageSize);
     }
@@ -166,10 +172,34 @@ public class InfoCenterService {
         List<Long> subscribedIds = user == null ? List.of()
                 : noticeSubscriptionRepository.findByUserIdAndEnabledTrue(user.getId()).stream()
                         .map(item -> item.getSource().getId()).toList();
-        Map<String, Object> data = toNoticeMap(notice, user, subscribedIds);
+        UserNoticeStatus status = user == null ? null
+                : noticeCompletionService.getStatusMap(user.getId(), List.of(id)).get(id);
+        Map<String, Object> data = toNoticeMap(notice, user, subscribedIds, status);
         data.put("contentSnapshot", notice.getContentSnapshot());
         data.put("rawPayload", parseJsonObject(notice.getRawPayloadJson()));
         return data;
+    }
+
+    @Transactional
+    public Map<String, Object> rebuildNoticeDeadlines() {
+        List<AggregatedNotice> notices = aggregatedNoticeRepository.findByStatusAndDeadlineIsNotNullOrderByDeadlineAsc("ONLINE");
+        if (notices.isEmpty()) {
+            notices = aggregatedNoticeRepository.findTopNByStatusOrderByPublishTimeDescCreatedAtDesc("ONLINE", 500);
+        }
+        int updated = 0;
+        for (AggregatedNotice notice : notices) {
+            noticeIngestionService.rebuildDeadline(notice);
+            updated++;
+        }
+        return Map.of("updatedCount", updated);
+    }
+
+    @Transactional
+    public Map<String, Object> extractNoticeDeadline(Long noticeId, User user) {
+        AggregatedNotice notice = requireNotice(noticeId);
+        ensureNoticeVisible(notice, user);
+        noticeIngestionService.rebuildDeadline(notice);
+        return getNoticeDetail(noticeId, user);
     }
 
     public Map<String, Object> listNoticeComments(Long noticeId, User user) {
@@ -262,7 +292,7 @@ public class InfoCenterService {
                 request.getSummary(), request.getCategory(), request.getOriginalUrl(), parseDateTime(request.getPublishTime()),
                 parseDateTime(request.getDeadline()), request.getTargetAudience(), request.getLocation(),
                 request.getContentSnapshot(), arrayToList(request.getTags()), toActionLinks(request.getActionLinks()));
-        return toNoticeMap(notice, null, List.of());
+        return toNoticeMap(notice, null, List.of(), null);
     }
 
     @Transactional
@@ -273,7 +303,7 @@ public class InfoCenterService {
                 parseDateTime(request.getPublishTime()), parseDateTime(request.getDeadline()), request.getTargetAudience(),
                 request.getLocation(), request.getContentSnapshot(), arrayToList(request.getTags()),
                 toActionLinks(request.getActionLinks()));
-        return toNoticeMap(notice, null, List.of());
+        return toNoticeMap(notice, null, List.of(), null);
     }
 
     @Transactional
@@ -380,8 +410,14 @@ public class InfoCenterService {
         return map;
     }
 
-    private Map<String, Object> toNoticeMap(AggregatedNotice notice, User user, List<Long> subscribedIds) {
+    private Map<String, Object> toNoticeMap(AggregatedNotice notice, User user, List<Long> subscribedIds,
+            UserNoticeStatus status) {
         Map<String, Object> map = new LinkedHashMap<>();
+        boolean completed = status != null && Boolean.TRUE.equals(status.getCompleted());
+        boolean hasDeadline = notice.getDeadline() != null;
+        LocalDateTime now = LocalDateTime.now();
+        boolean expired = hasDeadline && notice.getDeadline().isBefore(now);
+        boolean dueSoon = hasDeadline && !expired && !notice.getDeadline().isAfter(now.plusHours(24));
         map.put("id", notice.getId());
         map.put("sourceId", notice.getSource().getId());
         map.put("sourceName", notice.getSourceName());
@@ -390,6 +426,9 @@ public class InfoCenterService {
         map.put("category", notice.getCategory());
         map.put("publishTime", toIso(notice.getPublishTime()));
         map.put("deadline", toIso(notice.getDeadline()));
+        map.put("deadlineSource", notice.getDeadlineSource());
+        map.put("deadlineConfidence", notice.getDeadlineConfidence());
+        map.put("hasDeadline", hasDeadline);
         map.put("targetAudience", notice.getTargetAudience());
         map.put("location", notice.getLocation());
         map.put("actionLinks", parseJsonObjectList(notice.getActionLinksJson()));
@@ -398,7 +437,31 @@ public class InfoCenterService {
         map.put("status", notice.getStatus());
         map.put("onlySubscribedMatched", subscribedIds.contains(notice.getSource().getId()));
         map.put("privateNotice", notice.getOwnerUser() != null);
+        map.put("completed", completed);
+        map.put("completedAt", status == null || status.getCompletedAt() == null ? null : toIso(status.getCompletedAt()));
+        map.put("expired", expired);
+        map.put("dueSoon", dueSoon);
+        map.put("processingStatus", completed ? "COMPLETED" : expired ? "EXPIRED" : dueSoon ? "DUE_SOON" : hasDeadline ? "HAS_DEADLINE" : "UNFINISHED");
         return map;
+    }
+
+    private boolean matchNoticeFilter(AggregatedNotice notice, UserNoticeStatus status, String filter) {
+        if (filter == null || filter.isBlank() || "all".equalsIgnoreCase(filter)) {
+            return true;
+        }
+        boolean completed = status != null && Boolean.TRUE.equals(status.getCompleted());
+        LocalDateTime now = LocalDateTime.now();
+        boolean hasDeadline = notice.getDeadline() != null;
+        return switch (filter.toLowerCase()) {
+            case "unfinished" -> !completed;
+            case "completed" -> completed;
+            case "hasdeadline" -> hasDeadline;
+            case "next7days" -> hasDeadline && !completed
+                    && !notice.getDeadline().isBefore(now)
+                    && !notice.getDeadline().isAfter(now.plusDays(7));
+            case "expired" -> hasDeadline && !completed && notice.getDeadline().isBefore(now);
+            default -> true;
+        };
     }
 
     private Map<String, Object> toCommentMap(NoticeComment comment, User currentUser, boolean includeReplies) {

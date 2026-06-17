@@ -140,6 +140,12 @@
                                 }
                   },
                   {
+                      "path":  "pages/ai-chat/index",
+                      "style":  {
+                                    "navigationBarTitleText":  "AI 校园助手"
+                                }
+                  },
+                  {
                       "path":  "pages/course-circle/index",
                       "style":  {
                                     "navigationStyle":  "custom",
@@ -205,6 +211,18 @@
                       "path":  "pages/info-center/detail",
                       "style":  {
                                     "navigationBarTitleText":  "通知详情"
+                                }
+                  },
+                  {
+                      "path":  "pages/schedule/index",
+                      "style":  {
+                                    "navigationBarTitleText":  "我的日程"
+                                }
+                  },
+                  {
+                      "path":  "pages/schedule/form",
+                      "style":  {
+                                    "navigationBarTitleText":  "日程编辑"
                                 }
                   },
                   {

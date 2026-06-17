@@ -1,15 +1,15 @@
-﻿<template>
+<template>
   <view class="page">
     <view class="nav-bar">
       <text class="back-btn" @click="goHome">< 返回</text>
       <text class="nav-title">信息订阅中心</text>
-      <text class="nav-action" @click="goSubscriptions">订阅管理</text>
+      <text class="nav-action" @click="goSchedule">我的日程</text>
     </view>
 
     <view class="hero">
       <view>
         <text class="title">信息订阅中心</text>
-        <text class="subtitle">统一查看公众号、教务与 Canvas 通知</text>
+        <text class="subtitle">默认先看近期通知，继续滑动再加载更早内容</text>
       </view>
     </view>
 
@@ -18,7 +18,7 @@
         v-model="filters.keyword"
         class="search-input"
         placeholder="搜索标题、摘要、关键词"
-        @confirm="loadNotices"
+        @confirm="reloadNotices"
       />
       <picker class="picker" :range="sources" range-key="label" @change="onSourceChange">
         <view class="picker-value">{{ currentSourceLabel }}</view>
@@ -30,33 +30,70 @@
         <button class="toggle-btn" :class="{ active: viewMode === 'cards' }" @click="setViewMode('cards')">卡片</button>
         <button class="toggle-btn" :class="{ active: viewMode === 'calendar' }" @click="setViewMode('calendar')">日历</button>
       </view>
+      <text class="toolbar-link" @click="goSubscriptions">订阅管理</text>
     </view>
 
-    <view v-if="viewMode === 'cards'" class="list">
-      <view v-for="group in timelineGroups" :key="group.key" class="day-group" :id="group.anchorId">
-        <view class="day-title-row">
-          <text class="day-title">{{ group.label }}</text>
+    <scroll-view scroll-x class="filter-scroll">
+      <view class="filter-row">
+        <view
+          v-for="item in filterOptions"
+          :key="item.value"
+          class="filter-pill"
+          :class="{ active: filters.filter === item.value }"
+          @click="setFilter(item.value)"
+        >
+          {{ item.label }}
         </view>
-        <view v-if="group.type === 'empty-range'" class="empty-range-card">尚未进行任何计划</view>
-        <view v-else-if="!group.items.length" class="empty-day-card">尚未进行任何计划</view>
-        <view v-for="notice in group.items" :key="notice.id" class="notice-card" @click="goDetail(notice.id)">
-          <view class="notice-header">
-            <text class="badge">{{ notice.category || '通知' }}</text>
-            <text class="source">{{ notice.sourceName }}</text>
-          </view>
-          <text class="notice-title">{{ notice.title }}</text>
-          <text v-if="notice.summary" class="notice-summary">{{ notice.summary }}</text>
-          <view class="meta-row">
-            <text class="meta-text">发布时间 {{ formatTime(notice.publishTime) }}</text>
-            <text v-if="notice.deadline" class="deadline">截止 {{ formatTime(notice.deadline) }}</text>
-          </view>
-          <view v-if="notice.tags && notice.tags.length" class="tag-row">
-            <text v-for="tag in notice.tags" :key="tag" class="tag">{{ tag }}</text>
-          </view>
+      </view>
+    </scroll-view>
+
+    <view v-if="viewMode === 'cards'" class="list">
+      <view v-if="initialLoading" class="state-card">Loading...</view>
+
+      <view
+        v-for="notice in cardNotices"
+        :key="notice.id"
+        class="notice-card"
+        @click="goDetail(notice.id)"
+      >
+        <view class="notice-header">
+          <text class="badge">{{ notice.category || '通知' }}</text>
+          <text class="source">{{ notice.sourceName || '订阅来源' }}</text>
+        </view>
+
+        <text class="notice-title">{{ notice.title }}</text>
+        <text v-if="notice.summary" class="notice-summary">{{ notice.summary }}</text>
+
+        <view class="status-chip-row">
+          <text v-if="notice.completed" class="status-chip muted">已完成</text>
+          <text v-else-if="notice.expired" class="status-chip danger">已过期</text>
+          <text v-else-if="notice.dueSoon" class="status-chip warn">即将截止</text>
+          <text v-else-if="notice.hasDeadline" class="status-chip">有 DDL</text>
+        </view>
+
+        <view class="meta-row">
+          <text class="meta-text">发布时间 {{ formatTime(notice.publishTime) }}</text>
+          <text v-if="notice.deadline" class="deadline">截止 {{ formatTime(notice.deadline) }}</text>
+        </view>
+
+        <view v-if="notice.tags && notice.tags.length" class="tag-row">
+          <text v-for="tag in notice.tags" :key="tag" class="tag">{{ tag }}</text>
+        </view>
+
+        <view v-if="hasToken" class="card-action-row">
+          <button
+            class="card-action-btn"
+            :class="{ secondary: notice.completed }"
+            @click.stop="toggleNoticeCompleted(notice)"
+          >
+            {{ notice.completed ? '取消完成' : '标记完成' }}
+          </button>
         </view>
       </view>
 
-      <view v-if="!timelineGroups.length" class="empty">暂无通知，先去订阅来源或触发一次同步。</view>
+      <view v-if="!initialLoading && !cardNotices.length" class="state-card">暂无通知</view>
+      <view v-else-if="loadingMore" class="state-card">正在加载更早通知...</view>
+      <view v-else-if="!hasMore && cardNotices.length" class="state-card">已经到底了</view>
     </view>
 
     <view v-else class="calendar">
@@ -103,12 +140,12 @@
       <view v-if="selectedDayEvents.length" class="day-panel">
         <view class="day-panel-header">
           <text class="day-panel-title">{{ selectedDateLabel }}</text>
-          <text class="day-panel-sub">{{ selectedDayEvents.length }} 条</text>
+          <text class="day-panel-sub">{{ selectedDayEvents.length }} items</text>
         </view>
         <view v-for="notice in selectedDayEvents" :key="notice.id" class="day-item" @click="goDetail(notice.id)">
           <view class="notice-header">
-            <text class="badge">{{ notice.category || '通知' }}</text>
-            <text class="source">{{ notice.sourceName }}</text>
+          <text class="badge">{{ notice.category || '通知' }}</text>
+          <text class="source">{{ notice.sourceName || '订阅来源' }}</text>
           </view>
           <text class="notice-title">{{ notice.title }}</text>
           <view class="meta-row">
@@ -118,7 +155,7 @@
         </view>
       </view>
 
-      <view v-if="!visibleNotices.length" class="empty">暂无通知，先去订阅来源或触发一次同步。</view>
+      <view v-if="!visibleNotices.length" class="state-card">当前数据下暂无日历项</view>
     </view>
 
     <view class="bottom-space"></view>
@@ -128,90 +165,68 @@
 
 <script>
 import TabBar from '@/components/TabBar.vue'
-import { getInfoNotices } from '@/api/info-center'
+import { completeInfoNotice, getInfoNotices, uncompleteInfoNotice } from '@/api/info-center'
 
 export default {
   components: { TabBar },
   data() {
     return {
-      hasBootstrapped: false,
       viewMode: 'cards',
       notices: [],
+      page: 1,
+      pageSize: 20,
+      hasMore: true,
+      initialLoading: false,
+      loadingMore: false,
       sources: [
         { value: '', label: '全部来源' },
         { value: 'canvas', label: 'Canvas' },
         { value: 'tongji', label: '同济一网通办' }
       ],
+      filterOptions: [
+        { value: 'all', label: '全部' },
+        { value: 'unfinished', label: '未完成' },
+        { value: 'completed', label: '已完成' },
+        { value: 'hasDeadline', label: '有 DDL' },
+        { value: 'next7days', label: '近 7 天' },
+        { value: 'expired', label: '已过期' }
+      ],
       filters: {
         source: '',
-        keyword: ''
+        keyword: '',
+        filter: 'all'
       },
       calendarCursor: null,
       selectedDateKey: ''
     }
   },
   computed: {
+    hasToken() {
+      return !!uni.getStorageSync('token')
+    },
     currentSourceLabel() {
       return this.sources.find(item => item.value === this.filters.source)?.label || '全部来源'
     },
     visibleNotices() {
-      const source = this.filters.source
-      if (!source) return this.notices || []
-      return (this.notices || []).filter(notice => this.matchSource(notice, source))
+      if (!this.filters.source) return this.notices
+      return this.notices.filter(notice => this.matchSource(notice, this.filters.source))
     },
-    timelineGroups() {
-      const notices = this.visibleNotices || []
-      const today = this.startOfDay(new Date())
-      const byDay = new Map()
-      let minDay = null
-      let maxDay = null
-      notices.forEach(notice => {
-        const dt = this.parseIsoDate(notice.deadline || notice.publishTime)
-        if (!dt) return
-        const day = this.startOfDay(dt)
-        const key = this.dateKey(day)
-        const list = byDay.get(key) || []
-        list.push(notice)
-        byDay.set(key, list)
-        if (!minDay || day.getTime() < minDay.getTime()) minDay = day
-        if (!maxDay || day.getTime() > maxDay.getTime()) maxDay = day
+    cardNotices() {
+      return [...this.visibleNotices].sort((a, b) => {
+        const at = this.parseIsoDate(a.deadline || a.publishTime)?.getTime() || 0
+        const bt = this.parseIsoDate(b.deadline || b.publishTime)?.getTime() || 0
+        return bt - at
       })
-      if (!minDay || !maxDay) {
-        minDay = today
-        maxDay = today
-      } else {
-        if (today.getTime() < minDay.getTime()) minDay = today
-        if (today.getTime() > maxDay.getTime()) maxDay = today
-      }
-
-      const dayRows = []
-      for (let d = new Date(minDay); d.getTime() <= maxDay.getTime(); d = this.addDays(d, 1)) {
-        const key = this.dateKey(d)
-        const items = (byDay.get(key) || []).slice().sort((a, b) => {
-          const at = this.parseIsoDate(a.deadline || a.publishTime)?.getTime() || 0
-          const bt = this.parseIsoDate(b.deadline || b.publishTime)?.getTime() || 0
-          return at - bt
-        })
-        dayRows.push({
-          type: 'day',
-          key,
-          anchorId: key === this.dateKey(today) ? 'today-anchor' : '',
-          date: new Date(d),
-          label: this.formatDayLabel(d, today),
-          items
-        })
-      }
-      return this.mergeEmptyDayRows(dayRows)
     },
     weekdays() {
       return ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
     },
     calendarTitle() {
       const cursor = this.calendarCursor || new Date()
-      return `${cursor.getFullYear()}年 ${cursor.getMonth() + 1}月`
+      return `${cursor.getFullYear()}年 ${String(cursor.getMonth() + 1).padStart(2, '0')}月`
     },
     noticeEvents() {
-      return (this.visibleNotices || [])
+      return this.visibleNotices
         .map(notice => {
           const dt = this.parseIsoDate(notice.deadline || notice.publishTime)
           if (!dt) return null
@@ -227,81 +242,93 @@ export default {
       const jsDay = firstOfMonth.getDay()
       const startOffset = (jsDay + 6) % 7
       const start = new Date(year, month, 1 - startOffset)
-
       const eventsByKey = new Map()
+
       for (const evt of this.noticeEvents) {
         const list = eventsByKey.get(evt.key) || []
         list.push(evt.notice)
         eventsByKey.set(evt.key, list)
       }
-      const todayKey = this.dateKey(new Date())
 
+      const todayKey = this.dateKey(new Date())
       const days = []
       for (let i = 0; i < 42; i++) {
         const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
         const key = this.dateKey(d)
-        const events = (eventsByKey.get(key) || []).slice().sort((a, b) => {
-          const ad = !!a.deadline
-          const bd = !!b.deadline
-          if (ad !== bd) return ad ? -1 : 1
-          return String(a.title || '').localeCompare(String(b.title || ''))
-        })
         days.push({
           key,
           inMonth: d.getMonth() === month,
           isToday: key === todayKey,
           dateNum: d.getDate(),
-          events
+          events: (eventsByKey.get(key) || []).slice(0, 4)
         })
       }
       return days
     },
     selectedDayEvents() {
       if (!this.selectedDateKey) return []
-      return this.calendarDays.find(d => d.key === this.selectedDateKey)?.events || []
+      return this.calendarDays.find(item => item.key === this.selectedDateKey)?.events || []
     },
     selectedDateLabel() {
-      if (!this.selectedDateKey) return ''
-      const [y, m, d] = this.selectedDateKey.split('-').map(v => parseInt(v, 10))
-      return `${y}年${m}月${d}日`
+      return this.selectedDateKey || ''
     }
   },
   onLoad() {
-    this.bootstrap()
+    this.viewMode = uni.getStorageSync('infoCenterViewMode') || 'cards'
+    const now = new Date()
+    this.calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1)
+    this.selectedDateKey = this.dateKey(now)
+    this.reloadNotices()
   },
   onShow() {
     uni.hideTabBar({ animation: false })
-    if (!this.hasBootstrapped) return
-    this.loadNotices()
+  },
+  onReachBottom() {
+    if (this.viewMode !== 'cards' || this.loadingMore || !this.hasMore) return
+    this.loadNotices(false)
   },
   methods: {
-    async bootstrap() {
-      this.viewMode = uni.getStorageSync('infoCenterViewMode') || 'cards'
-      const now = new Date()
-      this.calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1)
-      this.selectedDateKey = this.dateKey(now)
-      await this.loadNotices()
-      this.hasBootstrapped = true
-    },
     setViewMode(mode) {
       this.viewMode = mode
       uni.setStorageSync('infoCenterViewMode', mode)
-      if (mode === 'cards') this.scrollToToday()
     },
-    async loadNotices() {
-      const res = await getInfoNotices({
-        keyword: this.filters.keyword,
-        page: 1,
-        pageSize: 120
-      })
-      if (res.code === 200) {
-        this.notices = res.data.list || []
-        this.scrollToToday()
+    async reloadNotices() {
+      this.page = 1
+      this.hasMore = true
+      this.notices = []
+      await this.loadNotices(true)
+    },
+    async loadNotices(reset = false) {
+      if (!this.hasMore && !reset) return
+      if (reset) {
+        this.initialLoading = true
+      } else {
+        this.loadingMore = true
+      }
+      try {
+        const res = await getInfoNotices({
+          keyword: this.filters.keyword,
+          filter: this.filters.filter,
+          page: this.page,
+          pageSize: this.pageSize
+        })
+        if (res.code === 200) {
+          const list = res.data.list || []
+          this.notices = reset ? list : [...this.notices, ...list]
+          this.hasMore = !!res.data.hasMore
+          if (this.hasMore) this.page += 1
+        }
+      } finally {
+        this.initialLoading = false
+        this.loadingMore = false
       }
     },
     onSourceChange(event) {
       this.filters.source = this.sources[event.detail.value].value
-      if (this.viewMode === 'cards') this.scrollToToday()
+    },
+    async setFilter(filter) {
+      this.filters.filter = filter
+      await this.reloadNotices()
     },
     goHome() {
       uni.switchTab({ url: '/pages/index/index' })
@@ -309,8 +336,21 @@ export default {
     goSubscriptions() {
       uni.navigateTo({ url: '/pages/info-center/subscriptions' })
     },
+    goSchedule() {
+      uni.navigateTo({ url: '/pages/schedule/index' })
+    },
     goDetail(id) {
       uni.navigateTo({ url: `/pages/info-center/detail?id=${id}` })
+    },
+    async toggleNoticeCompleted(notice) {
+      const wasCompleted = !!notice.completed
+      const action = wasCompleted ? uncompleteInfoNotice : completeInfoNotice
+      await action(notice.id)
+      uni.showToast({
+        title: wasCompleted ? '已取消完成' : '已标记完成',
+        icon: 'success'
+      })
+      await this.reloadNotices()
     },
     matchSource(notice = {}, source = '') {
       const sourceName = `${notice.sourceName || ''}`
@@ -349,68 +389,6 @@ export default {
       const now = new Date()
       this.calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1)
       this.selectedDateKey = this.dateKey(now)
-      if (this.viewMode === 'cards') this.scrollToToday()
-    },
-    scrollToToday() {
-      this.$nextTick(() => {
-        uni.pageScrollTo({
-          selector: '#today-anchor',
-          duration: 200
-        })
-      })
-    },
-    startOfDay(date) {
-      return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-    },
-    addDays(date, offset) {
-      return new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset)
-    },
-    formatDayLabel(day, today) {
-      const diff = Math.round((day.getTime() - today.getTime()) / 86400000)
-      const month = day.getMonth() + 1
-      const date = day.getDate()
-      const weekdays = ['日', '一', '二', '三', '四', '五', '六']
-      if (diff === 0) return `今天，${month}月${date}日`
-      if (diff === -1) return `昨天，${month}月${date}日`
-      if (diff === 1) return `明天，${month}月${date}日`
-      return `星期${weekdays[day.getDay()]}，${month}月${date}日`
-    },
-    formatRangeLabel(start, end) {
-      const sm = start.getMonth() + 1
-      const sd = start.getDate()
-      const em = end.getMonth() + 1
-      const ed = end.getDate()
-      return sm === em ? `${sm}月${sd}日至${ed}日` : `${sm}月${sd}日至${em}月${ed}日`
-    },
-    mergeEmptyDayRows(rows) {
-      const merged = []
-      let i = 0
-      while (i < rows.length) {
-        if (rows[i].items.length > 0) {
-          merged.push(rows[i])
-          i++
-          continue
-        }
-        let j = i
-        while (j < rows.length && rows[j].items.length === 0) j++
-        const count = j - i
-        if (count >= 2) {
-          const start = rows[i].date
-          const end = rows[j - 1].date
-          const hasToday = rows.slice(i, j).some(item => item.anchorId === 'today-anchor')
-          merged.push({
-            type: 'empty-range',
-            key: `empty-${rows[i].key}-${rows[j - 1].key}`,
-            anchorId: hasToday ? 'today-anchor' : '',
-            label: this.formatRangeLabel(start, end),
-            items: []
-          })
-        } else {
-          merged.push(rows[i])
-        }
-        i = j
-      }
-      return merged
     }
   }
 }
@@ -469,7 +447,7 @@ export default {
 .badge,
 .deadline,
 .tag,
-.empty {
+.state-card {
   display: block;
 }
 
@@ -482,6 +460,17 @@ export default {
   margin-top: 12rpx;
   font-size: 24rpx;
   opacity: 0.9;
+}
+
+.toolbar {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+  align-items: center;
+}
+
+.toolbar-view {
+  justify-content: flex-end;
 }
 
 .view-toggle {
@@ -502,11 +491,6 @@ export default {
   border-radius: 999rpx;
   background: transparent;
   color: var(--theme-ink);
-  white-space: nowrap;
-}
-
-.toggle-btn::after {
-  border: none;
 }
 
 .toggle-btn.active {
@@ -514,21 +498,16 @@ export default {
   color: #fff;
 }
 
-.toolbar {
-  display: flex;
-  gap: 20rpx;
-  margin-bottom: 20rpx;
-  align-items: center;
+.toggle-btn::after,
+.card-action-btn::after,
+.cal-btn::after,
+.cal-icon::after {
+  border: none;
 }
 
-.toolbar-view {
-  justify-content: flex-end;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
+.toolbar-link {
+  font-size: 24rpx;
+  color: var(--theme-primary-deep);
 }
 
 .search-input,
@@ -553,6 +532,31 @@ export default {
 .picker-value {
   color: var(--theme-ink);
   font-size: 26rpx;
+}
+
+.filter-scroll {
+  white-space: nowrap;
+  margin-bottom: 18rpx;
+}
+
+.filter-row {
+  display: flex;
+  gap: 14rpx;
+}
+
+.filter-pill {
+  flex: 0 0 auto;
+  padding: 14rpx 22rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.82);
+  color: #475569;
+  font-size: 24rpx;
+  border: 1rpx solid rgba(140, 128, 216, 0.08);
+}
+
+.filter-pill.active {
+  background: var(--theme-gradient-strong);
+  color: #fff;
 }
 
 .notice-card {
@@ -615,8 +619,50 @@ export default {
   font-size: 22rpx;
 }
 
-.tag-row {
-  margin-top: 18rpx;
+.tag-row,
+.status-chip-row,
+.card-action-row {
+  margin-top: 16rpx;
+}
+
+.status-chip {
+  display: inline-flex;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(140, 128, 216, 0.12);
+  color: var(--theme-primary-deep);
+  font-size: 22rpx;
+}
+
+.status-chip.warn {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.status-chip.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.status-chip.muted {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.card-action-btn {
+  margin: 0;
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: rgba(140, 128, 216, 0.12);
+  color: var(--theme-primary-deep);
+  font-size: 24rpx;
+}
+
+.card-action-btn.secondary {
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .tag {
@@ -627,10 +673,10 @@ export default {
   font-size: 22rpx;
 }
 
-.empty {
+.state-card {
   text-align: center;
   color: #64748b;
-  padding: 120rpx 30rpx;
+  padding: 48rpx 30rpx;
   font-size: 28rpx;
 }
 
@@ -673,10 +719,6 @@ export default {
   font-size: 24rpx;
 }
 
-.cal-btn::after {
-  border: none;
-}
-
 .cal-nav {
   display: flex;
   gap: 8rpx;
@@ -692,10 +734,6 @@ export default {
   background: #f1f5f9;
   color: #0f172a;
   font-size: 24rpx;
-}
-
-.cal-icon::after {
-  border: none;
 }
 
 .cal-weekdays {
@@ -747,20 +785,8 @@ export default {
   color: #94a3b8;
 }
 
-.cal-cell.muted .cal-date {
-  color: #9ca3af;
-}
-
-.cal-cell.muted .cal-event {
-  opacity: 0.6;
-}
-
 .cal-cell.today {
   background: rgba(140, 128, 216, 0.08);
-}
-
-.cal-cell.today .cal-date {
-  color: var(--theme-primary-deep);
 }
 
 .cal-cell.selected {
@@ -807,32 +833,8 @@ export default {
   flex: 0 0 auto;
 }
 
-.cal-event-icon::before,
-.cal-event-icon::after {
-  content: '';
-  position: absolute;
-  left: 5rpx;
-  right: 5rpx;
-  height: 2rpx;
-  background: #64748b;
-  opacity: 0.9;
-}
-
-.cal-event-icon::before {
-  top: 9rpx;
-}
-
-.cal-event-icon::after {
-  top: 16rpx;
-}
-
 .cal-event-icon.deadline {
   border-color: #ef4444;
-}
-
-.cal-event-icon.deadline::before,
-.cal-event-icon.deadline::after {
-  background: #ef4444;
 }
 
 .cal-event-text {
@@ -882,35 +884,7 @@ export default {
   border-bottom: none;
 }
 
-.day-group {
-  margin-bottom: 16rpx;
-}
-
-.day-title-row {
-  margin: 12rpx 6rpx 14rpx;
-}
-
-.day-title {
-  font-size: 42rpx;
-  font-weight: 700;
-  color: #1e3a5f;
-  display: block;
-}
-
-.empty-day-card,
-.empty-range-card {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1rpx solid rgba(148, 163, 184, 0.35);
-  border-radius: 20rpx;
-  text-align: center;
-  color: #4b5563;
-  font-size: 30rpx;
-  padding: 30rpx 20rpx;
-}
-
 .bottom-space {
   height: 20rpx;
 }
 </style>
-
-
