@@ -9,4 +9,6 @@ public interface CourseQuestionReplyRepository extends JpaRepository<CourseQuest
     List<CourseQuestionReply> findByQuestionIdOrderByCreatedAtAsc(Long questionId);
 
     long countByQuestionId(Long questionId);
+
+    boolean existsByQuestionIdAndUserIdAndContent(Long questionId, Long userId, String content);
 }

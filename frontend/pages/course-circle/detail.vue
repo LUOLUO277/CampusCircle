@@ -63,19 +63,19 @@
         <view class="summary-grid">
           <view class="summary-card">
             <text class="summary-label">平均难度</text>
-            <text class="summary-value">{{ reviewSummary.averageDifficulty || 0 }}</text>
+            <text class="summary-value">{{ formatSummaryValue('averageDifficulty') }}</text>
           </view>
           <view class="summary-card">
             <text class="summary-label">平均作业量</text>
-            <text class="summary-value">{{ reviewSummary.averageWorkload || 0 }}</text>
+            <text class="summary-value">{{ formatSummaryValue('averageWorkload') }}</text>
           </view>
           <view class="summary-card">
             <text class="summary-label">平均收获</text>
-            <text class="summary-value">{{ reviewSummary.averageGain || 0 }}</text>
+            <text class="summary-value">{{ formatSummaryValue('averageGain') }}</text>
           </view>
           <view class="summary-card">
             <text class="summary-label">平均推荐</text>
-            <text class="summary-value">{{ reviewSummary.averageRecommend || 0 }}</text>
+            <text class="summary-value">{{ formatSummaryValue('averageRecommend') }}</text>
           </view>
         </view>
         <view class="overview-card">
@@ -158,11 +158,11 @@
         <view class="summary-grid">
           <view class="summary-card">
             <text class="summary-label">讲解清晰度</text>
-            <text class="summary-value">{{ reviewSummary.averageClarity || 0 }}</text>
+            <text class="summary-value">{{ formatSummaryValue('averageClarity') }}</text>
           </view>
           <view class="summary-card">
             <text class="summary-label">考核压力</text>
-            <text class="summary-value">{{ reviewSummary.averageExamPressure || 0 }}</text>
+            <text class="summary-value">{{ formatSummaryValue('averageExamPressure') }}</text>
           </view>
         </view>
         <view v-if="reviews.length" class="list">
@@ -387,6 +387,12 @@ export default {
     },
     formatTime(value) {
       return `${value || ''}`.replace('T', ' ').slice(0, 16)
+    },
+    formatSummaryValue(key) {
+      if (!this.reviewSummary.reviewCount) {
+        return '--'
+      }
+      return this.reviewSummary[key] ?? '--'
     }
   }
 }

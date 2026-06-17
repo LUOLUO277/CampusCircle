@@ -14,6 +14,8 @@ public interface CourseExperienceRepository extends JpaRepository<CourseExperien
 
     long countByCourseId(Long courseId);
 
+    boolean existsByCourseIdAndUserIdAndSemester(Long courseId, Long userId, String semester);
+
     @Query("""
             select e from CourseExperience e
             where e.course.id = :courseId

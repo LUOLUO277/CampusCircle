@@ -14,6 +14,8 @@ public interface CourseQuestionRepository extends JpaRepository<CourseQuestion, 
 
     long countByCourseId(Long courseId);
 
+    boolean existsByCourseIdAndTitle(Long courseId, String title);
+
     @Query("""
             select q from CourseQuestion q
             where q.course.id = :courseId
