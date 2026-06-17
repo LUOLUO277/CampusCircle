@@ -49,6 +49,11 @@
     /* 快应用特有相关 */
     "quickapp" : {},
     /* 小程序特有相关 */
+    "h5" : {
+        "router" : {
+            "base" : "/cy/"
+        }
+    },
     "mp-weixin" : {
         "appid" : "",
         "setting" : {
